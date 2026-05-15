@@ -174,7 +174,7 @@
     box-shadow: 0 1px 3px var(--shadow-card);
     margin-bottom: 16px;
   }
-  .field { margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
   .field label {
     display: block;
     font-size: 13px;
@@ -182,7 +182,7 @@
     color: var(--text-label);
     margin-bottom: 6px;
   }
-  .hint { font-size: 12px; color: var(--text-muted-soft); margin-top: 4px; }
+  .hint { font-size: 11px; color: var(--text-muted-softer); margin-top: 4px; line-height: 1.4; }
   input[type=text], input[type=number], select, textarea {
     width: 100%;
     padding: 12px;
@@ -273,26 +273,24 @@
   }
   .hidden { display: none; }
   .section-header {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-muted);
-    margin: 4px 0 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border-light);
+    letter-spacing: 1.4px;
+    color: var(--text-muted-soft);
+    margin: 2px 0 10px;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
   }
   .section-header:first-child { margin-top: 0; }
-  .section-group + .section-header { margin-top: 22px; }
+  .section-group + .section-header { margin-top: 18px; }
   .section-header .optional {
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0;
     color: var(--text-muted-softer);
-    font-size: 11px;
+    font-size: 10px;
   }
   .cust-table-wrap {
     overflow: auto;
@@ -334,18 +332,32 @@
   .cust-summary .cs-value { font-weight: 600; color: var(--text-primary); }
   .cust-summary .cs-status.mismatch { color: var(--text-error); font-weight: 600; font-size: 12px; }
   .cust-summary .cs-status.match { color: var(--text-ok); font-weight: 600; font-size: 12px; }
-  .cust-action {
+  .cust-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 12px;
-    padding: 6px 12px;
-    border: 1px solid var(--accent);
-    background: var(--bg-card);
-    color: var(--accent);
-    border-radius: 6px;
+    color: var(--text-muted);
     cursor: pointer;
-    font-weight: 500;
-    font-family: inherit;
+    user-select: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
   }
-  .cust-action:hover { background: var(--bg-accent-hover); }
+  .cust-toggle:hover { background: var(--bg-accent-hover); }
+  .cust-toggle input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+  #cust-table input.cust-principal.autofilled {
+    background: var(--bg-summary);
+    color: var(--text-muted-strong);
+    border-style: dashed;
+    cursor: not-allowed;
+  }
   .layer-table-wrap {
     overflow-x: auto;
     margin-top: 4px;
@@ -481,7 +493,7 @@
         <div class="cust-summary">
           <div><span class="cs-label">Sum of principals:</span> <span id="cust-sum" class="cs-value">0.00</span> &nbsp;/&nbsp; <span id="cust-target" class="cs-value">—</span></div>
           <span id="cust-status" class="cs-status"></span>
-          <button type="button" class="cust-action" id="cust-balance-last">Auto-fill last row</button>
+          <label class="cust-toggle" for="cust-balance-last"><input type="checkbox" id="cust-balance-last" checked><span>Auto-fill last row</span></label>
         </div>
       </div>
     </div>
@@ -1526,6 +1538,7 @@ function rebuildCustomTable() {
 }
 
 function recalcCustomTable() {
+  applyAutoFillLastRow();
   const P = parseNum(document.getElementById("new-amount").value);
   const rate = parseNum(document.getElementById("new-rate").value);
   const r = isNaN(rate) ? 0 : (rate / 100) / 12; // CUST is monthly
@@ -1580,47 +1593,78 @@ document.getElementById("new-rate").addEventListener("input", recalcCustomTable)
 document.getElementById("cust-tbody").addEventListener("input", (e) => {
   if (e.target.classList.contains("cust-principal")) {
     stripMinus(e.target);
+    formatAmountLive(e.target);
     recalcCustomTable();
   }
 });
-document.getElementById("cust-balance-last").addEventListener("click", () => {
-  const P = parseNum(document.getElementById("new-amount").value);
-  if (!(P > 0)) return;
+
+// If the toggle is on, the last row's principal is computed as (loan amount − sum of others)
+// and the input is locked. If off, the user enters the last row manually.
+function applyAutoFillLastRow() {
+  const toggle = document.getElementById("cust-balance-last");
   const inputs = Array.from(document.querySelectorAll("#cust-tbody input.cust-principal"));
   if (inputs.length === 0) return;
+  const lastInput = inputs[inputs.length - 1];
+  const enabled = !!(toggle && toggle.checked);
+  lastInput.readOnly = enabled;
+  lastInput.classList.toggle("autofilled", enabled);
+  if (!enabled) return;
+  const P = parseNum(document.getElementById("new-amount").value);
+  if (!(P > 0)) { lastInput.value = ""; return; }
   const others = inputs.slice(0, -1).reduce((s, el) => {
     const v = parseNum(el.value);
     return s + (isNaN(v) ? 0 : v);
   }, 0);
-  const last = P - others;
-  inputs[inputs.length - 1].value = last > 0 ? last.toFixed(2) : "0";
+  const last = Math.max(0, P - others);
+  lastInput.value = last > 0 ? last.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0";
+}
+
+document.getElementById("cust-balance-last").addEventListener("change", () => {
   recalcCustomTable();
 });
 
-// ----- block negative input on amount and rate fields -----
+// ----- input formatting: strip negatives, live comma formatting on amount fields -----
 function stripMinus(el) {
-  if (el.value.indexOf("-") >= 0) {
-    el.value = el.value.replace(/-/g, "");
-  }
+  if (el.value.indexOf("-") >= 0) el.value = el.value.replace(/-/g, "");
 }
-["new-amount", "new-rate", "new-fdr-amount", "new-fdr-rate", "new-sec-installments", "ex-amount"].forEach((id) => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener("input", () => stripMinus(el));
-});
 
-// ----- pretty formatting on blur for amount inputs -----
+// Live thousand-separator formatting. Preserves cursor position by counting digits before it.
+function formatAmountLive(el) {
+  const oldVal = el.value;
+  const cursor = el.selectionStart != null ? el.selectionStart : oldVal.length;
+  const oldDigitsBeforeCursor = (oldVal.slice(0, cursor).match(/\d/g) || []).length;
+  let cleaned = oldVal.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot >= 0) {
+    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
+  }
+  const parts = cleaned.split(".");
+  const intRaw = parts[0] || "";
+  const decRaw = parts.length > 1 ? parts.slice(1).join("") : undefined;
+  const intFmt = intRaw.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const newVal = decRaw === undefined ? intFmt : intFmt + "." + decRaw;
+  if (newVal === oldVal) return;
+  el.value = newVal;
+  let newCursor = 0, digitsSeen = 0;
+  while (newCursor < newVal.length && digitsSeen < oldDigitsBeforeCursor) {
+    if (/\d/.test(newVal[newCursor])) digitsSeen++;
+    newCursor++;
+  }
+  el.setSelectionRange(newCursor, newCursor);
+}
+
+// Amount fields: strip negatives + live comma format on every keystroke.
 ["new-amount", "new-fdr-amount", "ex-amount"].forEach((id) => {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener("blur", () => {
-    const n = parseNum(el.value);
-    if (!isNaN(n) && n > 0) el.value = n.toLocaleString("en-US");
-  });
-  el.addEventListener("focus", () => {
-    const n = parseNum(el.value);
-    if (!isNaN(n)) el.value = String(n);
-  });
+  el.addEventListener("input", () => { stripMinus(el); formatAmountLive(el); });
+});
+
+// Non-amount numeric fields (rates, counts): just strip negatives — no commas.
+["new-rate", "new-fdr-rate", "new-sec-installments"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("input", () => stripMinus(el));
 });
 
 // ----- Security Type toggle (New Loan) -----
