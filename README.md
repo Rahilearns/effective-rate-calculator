@@ -18,3 +18,7 @@ A mobile-accessible, single-file HTML calculator for the **effective interest ra
 ## Stack
 
 A single `index.html` — vanilla HTML / CSS / JS, no build step, no dependencies. Includes a strict CSP and a light/dark theme toggle that respects `prefers-color-scheme`.
+
+## Deployment
+
+Hosted on GitHub Pages from the `main` branch. Pushes deploy automatically within ~1 minute of commit.
