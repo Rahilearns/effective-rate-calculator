@@ -1,0 +1,12 @@
+# Local test/working files — not part of the public site
+Screenshot*.png
+sample.xlsx
+*.local
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
