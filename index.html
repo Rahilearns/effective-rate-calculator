@@ -480,6 +480,21 @@
       </div>
     </div>
 
+    <div class="section-header">Bank Funding</div>
+    <div class="section-group">
+      <div class="row">
+        <div class="field">
+          <label for="new-cof">Treasury COF (% p.a.)</label>
+          <input id="new-cof" type="text" inputmode="decimal" autocomplete="off" value="11.70">
+        </div>
+        <div class="field">
+          <label for="new-opex">Deposit OPEX (% p.a.)</label>
+          <input id="new-opex" type="text" inputmode="decimal" autocomplete="off" value="0.30">
+        </div>
+      </div>
+      <div class="hint">Total COF = Treasury + OPEX. Used to compute the bank's Net Interest Margin.</div>
+    </div>
+
     <div id="cust-section" class="hidden">
       <div class="section-header">Customized Repayment Schedule</div>
       <div class="section-group">
@@ -562,6 +577,21 @@
         <input id="ex-tenure" type="number" inputmode="numeric" placeholder="e.g. 60">
         <div class="hint">Total installments over the loan's life. Monthly modalities count in months; quarterly in quarters.</div>
       </div>
+    </div>
+
+    <div class="section-header">Bank Funding</div>
+    <div class="section-group">
+      <div class="row">
+        <div class="field">
+          <label for="ex-cof">Treasury COF (% p.a.)</label>
+          <input id="ex-cof" type="text" inputmode="decimal" autocomplete="off" value="11.70">
+        </div>
+        <div class="field">
+          <label for="ex-opex">Deposit OPEX (% p.a.)</label>
+          <input id="ex-opex" type="text" inputmode="decimal" autocomplete="off" value="0.30">
+        </div>
+      </div>
+      <div class="hint">Total COF = Treasury + OPEX. Used to compute the bank's Net Interest Margin.</div>
     </div>
 
     <div class="section-header">Rate Layers</div>
@@ -768,6 +798,36 @@ function irr(cashflows) {
   return NaN;
 }
 
+// ----- Bank yield metrics (NIM+COF method, matching Finance template) -----
+// Reproduces the template's "Effective Rate" formula:
+//   Effective Rate = Total COF + NIM
+//   NIM            = NII / Avg Portfolio / Years
+//   NII            = Total Interest Income - Total Interest Expense + FDR Cost-Savings Benefit
+//   FDR Benefit    = FDR Amount × (Total COF − FDR Rate) × Tenure Years
+//   Interest Expense (per period) = Start-of-period URPA × Total COF / periods-per-year
+// Returns all of the above so callers can show the breakdown alongside the headline rate.
+function computeBankYieldMetrics(sched, totalFdrBenefit, totalCofPct, periodsPerYear) {
+  const tenureYears = sched.length / periodsPerYear;
+  let totalIntIncome = 0;
+  let totalIntExpense = 0;
+  let sumBalStart = 0;
+  for (const row of sched) {
+    const balStart = (row.principal || 0) + (row.balance || 0); // reconstruct period-start balance
+    sumBalStart += balStart;
+    totalIntIncome += row.interest || 0;
+    totalIntExpense += balStart * (totalCofPct / 100) / periodsPerYear;
+  }
+  const avgPortfolio = sched.length > 0 ? sumBalStart / sched.length : 0;
+  const fdrBenefit = totalFdrBenefit || 0;
+  const nii = totalIntIncome + fdrBenefit - totalIntExpense;
+  const denom = avgPortfolio * tenureYears;
+  const nim = denom > 0 ? nii / denom : 0;
+  const effectiveCof = denom > 0 ? (totalIntExpense - fdrBenefit) / denom : 0;
+  const yol = denom > 0 ? totalIntIncome / avgPortfolio / tenureYears : 0;
+  const effectiveRate = (totalCofPct / 100) + nim;
+  return { tenureYears, avgPortfolio, totalIntIncome, totalIntExpense, fdrBenefit, nii, nim, effectiveCof, yol, effectiveRate };
+}
+
 // ----- parse installments from text -----
 function parseInstallments(text) {
   return text
@@ -805,13 +865,16 @@ document.getElementById("new-calc").addEventListener("click", () => {
   const rate = parseNum(document.getElementById("new-rate").value);
   const modality = document.getElementById("new-modality").value;
   const n = parseInt(document.getElementById("new-periods").value, 10);
+  const cofRaw = parseNum(document.getElementById("new-cof").value);
+  const opexRaw = parseNum(document.getElementById("new-opex").value);
+  const cof = isNaN(cofRaw) ? 0 : cofRaw;
+  const opex = isNaN(opexRaw) ? 0 : opexRaw;
+  const totalCof = cof + opex;
   const securityType = document.getElementById("new-security-type").value;
   const numInstallmentsRaw = parseNum(document.getElementById("new-sec-installments").value);
   const numInstallments = isNaN(numInstallmentsRaw) ? 0 : numInstallmentsRaw;
   const fdrAmtRaw = parseNum(document.getElementById("new-fdr-amount").value);
   const fdrRateRaw = parseNum(document.getElementById("new-fdr-rate").value);
-  // For FDR / Cash Security: amount comes straight from the input.
-  // For EMI / EQI: amount is derived later as numInstallments × the standard EMI/EQI computed from the loan details.
   const usesInstallments = securityType === "emi" || securityType === "eqi";
   let fdrAmount = usesInstallments ? 0 : (isNaN(fdrAmtRaw) ? 0 : fdrAmtRaw);
   const fdrRate = isNaN(fdrRateRaw) ? 0 : fdrRateRaw;
@@ -820,6 +883,8 @@ document.getElementById("new-calc").addEventListener("click", () => {
   if (!(P > 0)) errs.push("Loan amount must be a positive number.");
   if (!(rate >= 0)) errs.push("Offered rate must be zero or positive.");
   if (!(n > 0)) errs.push("Number of payments must be a positive whole number.");
+  if (cof < 0) errs.push("Treasury COF cannot be negative.");
+  if (opex < 0) errs.push("Deposit OPEX cannot be negative.");
   if (usesInstallments) {
     if (numInstallments < 0) errs.push("Number of installments cannot be negative.");
   } else {
@@ -846,10 +911,8 @@ document.getElementById("new-calc").addEventListener("click", () => {
   const renewalOption = document.getElementById("new-fdr-renewal").value;
   const periods = ppy(modality);
   const sched = buildSchedule(P, rate, modality, n, customPrincipals);
-  // For EMI / EQI security: compute a standard hypothetical installment based on the loan
-  // amount, offered rate, and tenure (in months for EMI, quarters for EQI) — independent of
-  // the loan's actual payment modality. This is intentionally NOT sched[0] because that
-  // varies by modality (and can be a user-defined principal for CUST).
+
+  // For EMI/EQI security: derive fdrAmount from a hypothetical standard installment on the loan terms.
   if (usesInstallments) {
     const tenureYears = n / ppy(modality);
     if (securityType === "emi") {
@@ -864,37 +927,42 @@ document.getElementById("new-calc").addEventListener("click", () => {
       fdrAmount = numInstallments * eqi;
     }
   }
-  const fdrFlows = computeFdrCashflows(fdrAmount, fdrRate, modality, n, renewalOption);
 
-  // t=0: net cash to borrower = loan disbursed − FDR placed
-  // t=1..n: −installment + FDR inflow (quarterly interest payout, or principal/compounded return at maturity)
+  // Primary: Bank yield via NIM + COF (matches Finance template)
+  const tenureYearsForBenefit = n / periods;
+  const fdrBenefitTotal = fdrAmount * (totalCof - fdrRate) / 100 * tenureYearsForBenefit;
+  const bm = computeBankYieldMetrics(sched, fdrBenefitTotal, totalCof, periods);
+
+  // Secondary: IRR × N (cashflow basis, what the deal actually earns time-weighted)
+  const fdrFlows = computeFdrCashflows(fdrAmount, fdrRate, modality, n, renewalOption);
   const cashflows = [P - fdrAmount, ...sched.map((r, i) => -r.payment + fdrFlows[i])];
   const periodicIrr = irr(cashflows);
-  // Banking convention: nominal annualisation (IRR × periods), matching Excel's =IRR()*N
-  const eir = periodicIrr * periods;
+  const irrAnnual = periodicIrr * periods;
 
-  const totalPaid = sched.reduce((s, r) => s + r.payment, 0);
-  const totalInterest = totalPaid - P;
-  const totalFdrReceived = fdrFlows.reduce((s, v) => s + v, 0);
-  const fdrInterestEarned = totalFdrReceived - fdrAmount; // strip out principal return
-  const fdrAtMaturity = renewalOption === "principal" ? fdrAmount : fdrAmount + fdrInterestEarned;
-  const fdrInterimPayouts = totalFdrReceived - fdrAtMaturity;
-  const netInterestCost = totalInterest - fdrInterestEarned;
   const firstPmt = sched[0].payment;
   const lastPmt = sched[sched.length - 1].payment;
   const periodWord = periods === 12 ? "month" : "quarter";
+  const totalCollected = sched.reduce((s, r) => s + r.payment, 0);
 
   const items = [
     ["Modality", modalityLabel(modality)],
-    ["Periods", `${n} ${periodWord}${n > 1 ? "s" : ""}`],
-    ["First Installment", fmt(firstPmt)],
-    ["Last Installment", fmt(lastPmt)],
+    ["Tenure", `${n} ${periodWord}${n > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
+    ["Yield on Lending (YOL)", fmtPct(bm.yol)],
+    ["Total COF", fmtPct(totalCof / 100)],
+    ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+    ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
+    [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
+    ["Avg Portfolio", fmt(bm.avgPortfolio)],
+    ["Total Interest Income", fmt(bm.totalIntIncome)],
+    ["Total Funding Cost", fmt(bm.totalIntExpense)],
   ];
   if (fdrAmount > 0) {
     const secTypeLabel = securityType === "fdr" ? "FDR"
                        : securityType === "cash" ? "Cash Security"
                        : securityType === "emi" ? "EMI"
                        : "EQI";
+    items.push(["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)]);
+    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
     items.push(["Security Type", secTypeLabel]);
     if (usesInstallments) {
       // Per spec, the derived security amount is not shown anywhere.
@@ -902,35 +970,19 @@ document.getElementById("new-calc").addEventListener("click", () => {
     } else {
       items.push([secTypeLabel + " Amount", fmt(fdrAmount)]);
     }
-    items.push(["Renewal Mode", renewalOption === "principal" ? "Principal only (interest paid out)" : "Principal + interest (compounded)"]);
-    items.push(["Security Interest Earned", fmt(fdrInterestEarned)]);
-    if (renewalOption === "principal") {
-      items.push(["Security Interest Paid Out (quarterly + final)", fmt(fdrInterimPayouts)]);
-    }
-    if (!usesInstallments) {
-      // These items would reveal the derived security amount, so we omit them when the user picked EMI/EQI.
-      items.push(["Security Repaid at Maturity", fmt(fdrAtMaturity)]);
-      items.push(["Net Cash at Day 0", fmt(P - fdrAmount)]);
-    }
-    items.push(["Gross Loan Interest", fmt(totalInterest)]);
-    items.push(["Net Interest Cost", fmt(netInterestCost)]);
-    items.push(["Total EMIs Paid", fmt(totalPaid)]);
+    items.push(["Renewal Mode", renewalOption === "principal" ? "Principal only" : "Principal + interest"]);
   } else {
-    items.push(["Total Interest", fmt(totalInterest)]);
-    items.push(["Total Paid", fmt(totalPaid)]);
+    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
   }
+  items.push(["First Installment", fmt(firstPmt)]);
+  items.push(["Last Installment", fmt(lastPmt)]);
+  items.push(["Total Collected", fmt(totalCollected)]);
 
-  const headlineLabel = fdrAmount > 0
-    ? "Effective Rate after FDR Offset (p.a.)"
-    : "Effective Rate (per annum)";
-  const renewalWord = renewalOption === "principal" ? "interest paid out" : "compounded";
-  const sublabel = fdrAmount > 0
-    ? `Loan ${rate.toFixed(2)}% / FDR ${fdrRate.toFixed(2)}% (${renewalWord}) → IRR × ${periods} = ${fmtPct(eir)}`
-    : `Offered ${rate.toFixed(2)}% p.a. → IRR × ${periods} = ${fmtPct(eir)}`;
+  const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
   out.innerHTML = renderResult({
-    headlineLabel,
-    headline: isFinite(eir) ? fmtPct(eir) : "—",
+    headlineLabel: "Effective Rate (Bank Yield, NIM + COF)",
+    headline: isFinite(bm.effectiveRate) ? fmtPct(bm.effectiveRate) : "—",
     sublabel,
     items,
     schedule: sched,
@@ -1342,10 +1394,17 @@ document.getElementById("ex-calc").addEventListener("click", () => {
   const layers = readLayers();
   const fdrLayers = readFdrLayers();
   const fdrRenewalOption = document.getElementById("ex-fdr-renewal").value;
+  const cofRaw = parseNum(document.getElementById("ex-cof").value);
+  const opexRaw = parseNum(document.getElementById("ex-opex").value);
+  const cof = isNaN(cofRaw) ? 0 : cofRaw;
+  const opex = isNaN(opexRaw) ? 0 : opexRaw;
+  const totalCof = cof + opex;
 
   const errs = [];
   if (!(P > 0)) errs.push("Original loan amount must be positive.");
   if (!(tenure > 0)) errs.push("Original tenure must be a positive whole number.");
+  if (cof < 0) errs.push("Treasury COF cannot be negative.");
+  if (opex < 0) errs.push("Deposit OPEX cannot be negative.");
   if (layers.length === 0) errs.push("Add at least one rate layer.");
   if (layers.some((l) => l.from == null || l.to == null || l.rate == null))
     errs.push("Each rate layer needs From, To, and Rate.");
@@ -1398,20 +1457,28 @@ document.getElementById("ex-calc").addEventListener("click", () => {
   if (errs.length) { out.innerHTML = `<div class="error">${errs.join("<br>")}</div>`; return; }
 
   const sched = buildLayeredSchedule(P, modality, tenure, layers);
+  const periods = ppy(modality);
+
+  // FDR benefit (NIM+COF method): summed across layers, weighted by each layer's duration in months
+  let totalFdrBenefit = 0;
+  for (const layer of fdrLayers) {
+    const layerMonths = layer.to - layer.from + 1;
+    totalFdrBenefit += (layer.amount || 0) * ((totalCof - (layer.rate || 0)) / 100) * (layerMonths / 12);
+  }
+
+  // Primary: NIM + COF
+  const bm = computeBankYieldMetrics(sched, totalFdrBenefit, totalCof, periods);
+
+  // Secondary: IRR × N (cashflow basis)
   const fdrResult = computeFdrCashflowsLayered(fdrLayers, modality, tenure, fdrRenewalOption);
   const cashflows = [
     P - fdrResult.initialAmount,
     ...sched.map((r, i) => -r.payment + fdrResult.periodFlows[i]),
   ];
   const periodicIrr = irr(cashflows);
-  const periods = ppy(modality);
-  const eir = periodicIrr * periods;
+  const irrAnnual = periodicIrr * periods;
 
-  const totalPaid = sched.reduce((s, r) => s + r.payment, 0);
-  const totalLoanInterest = totalPaid - P;
-  const totalFdrReceived = fdrResult.periodFlows.reduce((s, v) => s + v, 0);
-  const fdrInterestEarned = totalFdrReceived - fdrResult.initialAmount; // net of principal back
-  const netInterestCost = totalLoanInterest - fdrInterestEarned;
+  const totalCollected = sched.reduce((s, r) => s + r.payment, 0);
   const firstPmt = sched[0].payment;
   const lastPmt = sched[sched.length - 1].payment;
   const periodWord = periods === 12 ? "month" : "quarter";
@@ -1422,10 +1489,16 @@ document.getElementById("ex-calc").addEventListener("click", () => {
 
   const items = [
     ["Modality", modalityLabel(modality)],
-    ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""}`],
-    ["Rate Layers", String(layers.length)],
-    ["First Installment", fmt(firstPmt)],
-    ["Last Installment", fmt(lastPmt)],
+    ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
+    ["Rate Layers", `${layers.length} (${rateRangeStr})`],
+    ["Yield on Lending (YOL)", fmtPct(bm.yol)],
+    ["Total COF", fmtPct(totalCof / 100)],
+    ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+    ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
+    [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
+    ["Avg Portfolio", fmt(bm.avgPortfolio)],
+    ["Total Interest Income", fmt(bm.totalIntIncome)],
+    ["Total Funding Cost", fmt(bm.totalIntExpense)],
   ];
   if (hasFdr) {
     const fdrRates = fdrLayers.map((l) => l.rate);
@@ -1436,29 +1509,23 @@ document.getElementById("ex-calc").addEventListener("click", () => {
     const fdrAmtRange = Math.min(...fdrAmounts) === Math.max(...fdrAmounts)
       ? fmt(Math.min(...fdrAmounts))
       : `${fmt(Math.min(...fdrAmounts))} – ${fmt(Math.max(...fdrAmounts))}`;
-    items.push(["FDR Layers", String(fdrLayers.length)]);
-    items.push(["FDR Amount", fdrAmtRange]);
-    items.push(["FDR Rate", fdrRateRange]);
+    items.push(["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)]);
+    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
+    items.push([`FDR Layers (${fdrLayers.length})`, fdrAmtRange]);
+    items.push(["FDR Rate Range", fdrRateRange]);
     items.push(["FDR Renewal", fdrRenewalOption === "principal" ? "Principal only" : "Principal + interest"]);
-    items.push(["FDR Interest Earned", fmt(fdrInterestEarned)]);
-    items.push(["Gross Loan Interest", fmt(totalLoanInterest)]);
-    items.push(["Net Interest Cost", fmt(netInterestCost)]);
-    items.push(["Net Cash at Day 0", fmt(P - fdrResult.initialAmount)]);
   } else {
-    items.push(["Total Interest", fmt(totalLoanInterest)]);
+    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
   }
-  items.push(["Total EMIs Paid", fmt(totalPaid)]);
+  items.push(["First Installment", fmt(firstPmt)]);
+  items.push(["Last Installment", fmt(lastPmt)]);
+  items.push(["Total Collected", fmt(totalCollected)]);
 
-  const headlineLabel = hasFdr
-    ? "Effective Rate after FDR Offset (p.a.)"
-    : "Effective Rate (per annum)";
-  const sublabel = hasFdr
-    ? `${layers.length} rate layer${layers.length > 1 ? "s" : ""} (${rateRangeStr}) + ${fdrLayers.length} FDR layer${fdrLayers.length > 1 ? "s" : ""} → IRR × ${periods} = ${fmtPct(eir)}`
-    : `${layers.length} rate layer${layers.length > 1 ? "s" : ""} across ${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${rateRangeStr}) → IRR × ${periods} = ${fmtPct(eir)}`;
+  const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
   out.innerHTML = renderResult({
-    headlineLabel,
-    headline: isFinite(eir) ? fmtPct(eir) : "—",
+    headlineLabel: "Effective Rate (Bank Yield, NIM + COF)",
+    headline: isFinite(bm.effectiveRate) ? fmtPct(bm.effectiveRate) : "—",
     sublabel,
     items,
     schedule: sched,
@@ -1661,7 +1728,7 @@ function formatAmountLive(el) {
 });
 
 // Non-amount numeric fields (rates, counts): just strip negatives — no commas.
-["new-rate", "new-fdr-rate", "new-sec-installments"].forEach((id) => {
+["new-rate", "new-fdr-rate", "new-sec-installments", "new-cof", "new-opex", "ex-cof", "ex-opex"].forEach((id) => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("input", () => stripMinus(el));
