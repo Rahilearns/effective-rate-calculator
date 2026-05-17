@@ -183,6 +183,59 @@
     margin-bottom: 6px;
   }
   .hint { font-size: 11px; color: var(--text-muted-softer); margin-top: 4px; line-height: 1.4; }
+  .info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    font-style: italic;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    font-family: Georgia, "Times New Roman", serif;
+    vertical-align: middle;
+    transition: background 0.15s, color 0.15s;
+  }
+  .info-icon:hover, .info-icon:focus, .info-icon.open {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    outline: none;
+  }
+  .info-popup {
+    margin-top: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-summary);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    line-height: 1.45;
+  }
+  input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 14px;
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    background: var(--bg-input);
+    color: var(--text-body);
+    color-scheme: light dark;
+  }
+  input[type="date"]:focus { outline: none; border-color: var(--accent); background: var(--bg-input-focus); }
+  .layer-table input[type="date"] {
+    padding: 8px 4px;
+    font-size: 13px;
+    text-align: center;
+  }
   input[type=text], input[type=number], select, textarea {
     width: 100%;
     padding: 12px;
@@ -451,7 +504,6 @@
 
   <!-- NEW LOAN -->
   <section id="tab-new" class="card">
-    <div class="section-header">Loan Details</div>
     <div class="section-group">
       <div class="field">
         <label for="new-amount">Loan Amount</label>
@@ -470,35 +522,22 @@
           <option value="EQPI">Equal Quarterly Principal + Interest</option>
           <option value="MIBP">Monthly Interest + Bullet Principal</option>
           <option value="QIBP">Quarterly Interest + Bullet Principal</option>
-          <option value="CUST">Customized — user-defined principal schedule</option>
+          <option value="CUST">Customized</option>
         </select>
       </div>
       <div class="field">
-        <label for="new-periods">Total Number of Payments</label>
+        <label for="new-periods">Total Number of Payments <button type="button" class="info-icon" data-info="Monthly modalities count in months; quarterly modalities count in quarters. Customized is monthly.">i</button></label>
         <input id="new-periods" type="number" inputmode="numeric" autocomplete="off" placeholder="e.g. 60">
-        <div class="hint">Monthly modalities count in months; quarterly modalities count in quarters. Customized is monthly.</div>
       </div>
-    </div>
-
-    <div class="section-header">Bank Funding</div>
-    <div class="section-group">
-      <div class="row">
-        <div class="field">
-          <label for="new-cof">Treasury COF (% p.a.)</label>
-          <input id="new-cof" type="text" inputmode="decimal" autocomplete="off" value="11.70">
-        </div>
-        <div class="field">
-          <label for="new-opex">Deposit OPEX (% p.a.)</label>
-          <input id="new-opex" type="text" inputmode="decimal" autocomplete="off" value="0.30">
-        </div>
+      <div class="field">
+        <label for="new-cof">Cost of Fund (% p.a.) <button type="button" class="info-icon" data-info="Total cost of funds — Treasury rate + Deposit OPEX combined. Used as the bank's funding cost when computing NIM.">i</button></label>
+        <input id="new-cof" type="text" inputmode="decimal" autocomplete="off" value="12.00">
       </div>
-      <div class="hint">Total COF = Treasury + OPEX. Used to compute the bank's Net Interest Margin.</div>
     </div>
 
     <div id="cust-section" class="hidden">
       <div class="section-header">Customized Repayment Schedule</div>
       <div class="section-group">
-        <div class="hint" style="margin-bottom:8px;">Enter the principal paid in each period. Interest, payment, and ending balance are computed live. The sum of principals must equal the loan amount.</div>
         <div class="cust-table-wrap">
           <table id="cust-table">
             <thead><tr><th>#</th><th>Principal</th><th>Interest</th><th>Payment</th><th>Balance</th></tr></thead>
@@ -513,7 +552,6 @@
       </div>
     </div>
 
-    <div class="section-header">Security Information <span class="optional">leave amount 0 if no security</span></div>
     <div class="section-group">
       <div class="field">
         <label for="new-security-type">Security Type</label>
@@ -529,22 +567,19 @@
         <input id="new-fdr-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
       </div>
       <div class="field hidden" id="new-sec-installments-field">
-        <label for="new-sec-installments">Number of Installments</label>
+        <label for="new-sec-installments">Number of Installments <button type="button" class="info-icon" data-info="Security amount = this count × the standard EMI/EQI on the loan amount, offered rate, and tenure — independent of the loan's actual payment modality. Decimals allowed.">i</button></label>
         <input id="new-sec-installments" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 3 or 2.5">
-        <div class="hint">Security amount is computed internally as this count × the standard EMI/EQI on the loan amount, offered rate, and tenure — independent of the loan's actual payment modality. Decimals allowed.</div>
       </div>
       <div class="field">
-        <label for="new-fdr-rate">Interest Rate offered on Security (% per annum)</label>
+        <label for="new-fdr-rate">Security Interest Rate (% per annum) <button type="button" class="info-icon" data-info="Interest the security earns. Accrues monthly. Set to 0 if security doesn't earn interest.">i</button></label>
         <input id="new-fdr-rate" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
-        <div class="hint">Interest accrues monthly (minimum 0).</div>
       </div>
       <div class="field">
-        <label for="new-fdr-renewal">Renewal Every 3 Months</label>
+        <label for="new-fdr-renewal">Renewal Option <button type="button" class="info-icon" data-info="At each 3-month renewal: 'Principal only' pays accrued interest out as cash; 'Principal + interest' capitalises it. Security principal is repaid in full at loan maturity; under compounding, accumulated interest is also returned then.">i</button></label>
         <select id="new-fdr-renewal">
-          <option value="principal">Renew with principal only — interest paid out quarterly</option>
-          <option value="compound">Renew with principal + interest — interest compounded</option>
+          <option value="principal">Renew with principal only</option>
+          <option value="compound">Renew with principal + interest</option>
         </select>
-        <div class="hint">Security principal is repaid in full at loan maturity. With compounding, accumulated interest is also returned then.</div>
       </div>
     </div>
 
@@ -554,14 +589,14 @@
 
   <!-- EXISTING LOAN -->
   <section id="tab-existing" class="card hidden">
-    <div class="section-header">Original Loan</div>
+    <div class="section-header">Loan Details</div>
     <div class="section-group">
       <div class="field">
         <label for="ex-amount">Original Loan Amount (disbursed)</label>
         <input id="ex-amount" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g. 5,000,000">
       </div>
       <div class="field">
-        <label for="ex-modality">Payment Modality (original)</label>
+        <label for="ex-modality">Payment Modality <button type="button" class="info-icon" data-info="Payment structure of the loan — unchanged across rate revisions.">i</button></label>
         <select id="ex-modality">
           <option value="EMI">Equal Monthly Installment (EMI)</option>
           <option value="EQI">Equal Quarterly Installment (EQI)</option>
@@ -569,39 +604,46 @@
           <option value="EQPI">Equal Quarterly Principal + Interest</option>
           <option value="MIBP">Monthly Interest + Bullet Principal</option>
           <option value="QIBP">Quarterly Interest + Bullet Principal</option>
+          <option value="CUST">Customized</option>
         </select>
-        <div class="hint">Payment structure of the loan — unchanged across rate revisions.</div>
       </div>
       <div class="field">
-        <label for="ex-tenure">Original Tenure (number of installments)</label>
+        <label for="ex-tenure">Original Tenure (number of installments) <button type="button" class="info-icon" data-info="Total installments over the loan's life. Monthly modalities count in months; quarterly in quarters. Customized is monthly.">i</button></label>
         <input id="ex-tenure" type="number" inputmode="numeric" placeholder="e.g. 60">
-        <div class="hint">Total installments over the loan's life. Monthly modalities count in months; quarterly in quarters.</div>
+      </div>
+      <div class="field">
+        <label for="ex-disbursement">Disbursement Date <button type="button" class="info-icon" data-info="Date the loan was disbursed. All rate-layer and FDR-layer dates are interpreted relative to this. Payment dates fall at monthly or quarterly anniversaries from this date.">i</button></label>
+        <input id="ex-disbursement" type="date">
+        <div id="ex-maturity-display" class="hint" style="margin-top:6px;"></div>
+      </div>
+      <div class="field">
+        <label for="ex-cof">Cost of Fund (% p.a.) <button type="button" class="info-icon" data-info="Total cost of funds — Treasury rate + Deposit OPEX combined. Used as the bank's funding cost when computing NIM.">i</button></label>
+        <input id="ex-cof" type="text" inputmode="decimal" autocomplete="off" value="12.00">
       </div>
     </div>
 
-    <div class="section-header">Bank Funding</div>
-    <div class="section-group">
-      <div class="row">
-        <div class="field">
-          <label for="ex-cof">Treasury COF (% p.a.)</label>
-          <input id="ex-cof" type="text" inputmode="decimal" autocomplete="off" value="11.70">
+    <div id="ex-cust-section" class="hidden">
+      <div class="section-header">Customized Repayment Schedule</div>
+      <div class="section-group">
+        <div class="cust-table-wrap">
+          <table id="ex-cust-table">
+            <thead><tr><th>#</th><th>Principal</th><th>Interest</th><th>Payment</th><th>Balance</th></tr></thead>
+            <tbody id="ex-cust-tbody"></tbody>
+          </table>
         </div>
-        <div class="field">
-          <label for="ex-opex">Deposit OPEX (% p.a.)</label>
-          <input id="ex-opex" type="text" inputmode="decimal" autocomplete="off" value="0.30">
+        <div class="cust-summary">
+          <div><span class="cs-label">Sum of principals:</span> <span id="ex-cust-sum" class="cs-value">0.00</span> &nbsp;/&nbsp; <span id="ex-cust-target" class="cs-value">—</span></div>
+          <span id="ex-cust-status" class="cs-status"></span>
+          <label class="cust-toggle" for="ex-cust-balance-last"><input type="checkbox" id="ex-cust-balance-last" checked><span>Auto-fill last row</span></label>
         </div>
       </div>
-      <div class="hint">Total COF = Treasury + OPEX. Used to compute the bank's Net Interest Margin.</div>
     </div>
 
-    <div class="section-header">Rate Layers</div>
+    <div class="section-header">Rate Layers <button type="button" class="info-icon" data-info="Define each interest rate that has applied (or will apply) across a date range. Layers must cover every installment between disbursement and maturity, contiguously, with no gaps or overlaps.">i</button></div>
     <div class="section-group">
-      <div class="hint" style="margin-bottom:8px;">
-        Define each rate that has applied (or will apply) across an installment range. Layers must cover every installment from 1 to the tenure, contiguously, without gaps or overlaps.
-      </div>
       <div class="layer-table-wrap">
         <table id="layer-table" class="layer-table">
-          <thead><tr><th>From</th><th>To</th><th>Rate (% p.a.)</th><th></th></tr></thead>
+          <thead><tr><th>From Date</th><th>To Date</th><th>Rate (% p.a.)</th><th></th></tr></thead>
           <tbody id="layer-tbody"></tbody>
         </table>
       </div>
@@ -609,21 +651,11 @@
       <div id="layer-status" class="layer-status"></div>
     </div>
 
-    <div class="section-header">Cash Security / FDR <span style="font-weight:400; font-size:11px; color:#7a8694;">— optional</span></div>
+    <div class="section-header">Security Details <span class="optional">optional</span> <button type="button" class="info-icon" data-info="Define each amount and rate of cash security/FDR active over a date range. FDR principal is repaid in full at loan maturity. Leave the table empty if there is no security on this loan.">i</button></div>
     <div class="section-group">
-      <div class="hint" style="margin-bottom:8px;">
-        Define each amount and rate that has applied across a month range. FDR principal is repaid in full at loan maturity. Leave the table empty if there is no cash security on this loan.
-      </div>
-      <div class="field">
-        <label for="ex-fdr-renewal">FDR Renewal Every 3 Months</label>
-        <select id="ex-fdr-renewal">
-          <option value="principal">Renew with principal only — interest paid out quarterly</option>
-          <option value="compound">Renew with principal + interest — interest compounded</option>
-        </select>
-      </div>
       <div class="layer-table-wrap">
         <table id="fdr-table" class="layer-table">
-          <thead><tr><th>From</th><th>To</th><th>Amount</th><th>Rate (% p.a.)</th><th></th></tr></thead>
+          <thead><tr><th>From Date</th><th>To Date</th><th>Amount</th><th>Rate (% p.a.)</th><th></th></tr></thead>
           <tbody id="fdr-tbody"></tbody>
         </table>
       </div>
@@ -838,6 +870,26 @@ function parseInstallments(text) {
     .filter((x) => !isNaN(x) && x > 0);
 }
 
+// ----- Info icon click handler (toggle popup with field-level help) -----
+document.addEventListener("click", (e) => {
+  if (!e.target.classList || !e.target.classList.contains("info-icon")) return;
+  e.preventDefault();
+  const icon = e.target;
+  const host = icon.closest(".field, .section-header");
+  if (!host) return;
+  let popup = host.querySelector(":scope > .info-popup");
+  if (popup) {
+    popup.remove();
+    icon.classList.remove("open");
+  } else {
+    popup = document.createElement("div");
+    popup.className = "info-popup";
+    popup.textContent = icon.dataset.info || "";
+    host.appendChild(popup);
+    icon.classList.add("open");
+  }
+});
+
 // ----- Theme toggle -----
 document.getElementById("theme-toggle").addEventListener("click", () => {
   const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
@@ -866,10 +918,7 @@ document.getElementById("new-calc").addEventListener("click", () => {
   const modality = document.getElementById("new-modality").value;
   const n = parseInt(document.getElementById("new-periods").value, 10);
   const cofRaw = parseNum(document.getElementById("new-cof").value);
-  const opexRaw = parseNum(document.getElementById("new-opex").value);
-  const cof = isNaN(cofRaw) ? 0 : cofRaw;
-  const opex = isNaN(opexRaw) ? 0 : opexRaw;
-  const totalCof = cof + opex;
+  const totalCof = isNaN(cofRaw) ? 0 : cofRaw;
   const securityType = document.getElementById("new-security-type").value;
   const numInstallmentsRaw = parseNum(document.getElementById("new-sec-installments").value);
   const numInstallments = isNaN(numInstallmentsRaw) ? 0 : numInstallmentsRaw;
@@ -883,8 +932,7 @@ document.getElementById("new-calc").addEventListener("click", () => {
   if (!(P > 0)) errs.push("Loan amount must be a positive number.");
   if (!(rate >= 0)) errs.push("Offered rate must be zero or positive.");
   if (!(n > 0)) errs.push("Number of payments must be a positive whole number.");
-  if (cof < 0) errs.push("Treasury COF cannot be negative.");
-  if (opex < 0) errs.push("Deposit OPEX cannot be negative.");
+  if (totalCof < 0) errs.push("Cost of Fund cannot be negative.");
   if (usesInstallments) {
     if (numInstallments < 0) errs.push("Number of installments cannot be negative.");
   } else {
@@ -990,27 +1038,62 @@ document.getElementById("new-calc").addEventListener("click", () => {
   out.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-// ----- EXISTING LOAN: rate layers -----
-function makeInstallmentOptions(tenure, selected) {
-  let html = '<option value="">— select —</option>';
-  for (let i = 1; i <= tenure; i++) {
-    const sel = i === selected ? " selected" : "";
-    html += `<option value="${i}"${sel}>Installment - ${i}</option>`;
-  }
-  return html;
+// ----- EXISTING LOAN: dates + rate layers -----
+
+// Date helpers
+function readExDisbursement() {
+  const v = document.getElementById("ex-disbursement").value;
+  if (!v) return null;
+  const [y, m, d] = v.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
-function readLayers() {
-  return Array.from(document.querySelectorAll("#layer-tbody tr")).map((tr) => {
-    const from = parseInt(tr.querySelector(".layer-from").value, 10);
-    const to = parseInt(tr.querySelector(".layer-to").value, 10);
-    const rate = parseNum(tr.querySelector(".layer-rate").value);
-    return {
-      from: Number.isFinite(from) ? from : null,
-      to: Number.isFinite(to) ? to : null,
-      rate: isNaN(rate) ? null : rate,
-    };
-  });
+function fmtDateInputValue(date) {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function monthsFromDisbursement(date, disbursement) {
+  let m = (date.getFullYear() - disbursement.getFullYear()) * 12 + (date.getMonth() - disbursement.getMonth());
+  if (date.getDate() < disbursement.getDate()) m -= 1;
+  return m;
+}
+
+// Map a calendar date to an installment index (1-based) relative to disbursement.
+// mode="from": smallest installment whose date is on/after the given date.
+// mode="to":   largest installment whose date is on/before the given date.
+function dateToInstIdx(date, disbursement, modality, mode) {
+  if (!disbursement || !date) return null;
+  const isMonthly = ["EMI","EMPI","MIBP","CUST"].includes(modality);
+  const monthsPerPeriod = isMonthly ? 1 : 3;
+  const totalMonths = monthsFromDisbursement(date, disbursement);
+  const exactAnniversary = date.getDate() === disbursement.getDate();
+  if (mode === "from") {
+    if (totalMonths <= 0) return 1;
+    if (totalMonths % monthsPerPeriod === 0 && exactAnniversary) return totalMonths / monthsPerPeriod;
+    return Math.ceil((totalMonths + (exactAnniversary ? 0 : 1)) / monthsPerPeriod);
+  }
+  if (mode === "to") {
+    if (totalMonths < monthsPerPeriod) return 0;
+    return Math.floor(totalMonths / monthsPerPeriod);
+  }
+  return null;
+}
+
+function dateToMonthIdx(date, disbursement, mode) {
+  return dateToInstIdx(date, disbursement, "EMI", mode);
+}
+
+function instIdxToDate(idx, disbursement, modality) {
+  if (!disbursement || !(idx > 0)) return null;
+  const isMonthly = ["EMI","EMPI","MIBP","CUST"].includes(modality);
+  const monthsPerPeriod = isMonthly ? 1 : 3;
+  const d = new Date(disbursement);
+  d.setMonth(d.getMonth() + idx * monthsPerPeriod);
+  return d;
 }
 
 function getExTenure() {
@@ -1018,29 +1101,50 @@ function getExTenure() {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function addLayerRow(from, to, rate) {
+function updateMaturityDisplay() {
+  const disp = document.getElementById("ex-maturity-display");
+  if (!disp) return;
+  const disb = readExDisbursement();
   const tenure = getExTenure();
+  const modality = document.getElementById("ex-modality").value;
+  if (!disb || !(tenure > 0)) { disp.textContent = ""; return; }
+  const maturity = instIdxToDate(tenure, disb, modality);
+  if (maturity) disp.textContent = `Maturity: ${fmtDateInputValue(maturity)}`;
+}
+
+// Rate layers
+function readLayers() {
+  const disbursement = readExDisbursement();
+  const modality = document.getElementById("ex-modality").value;
+  return Array.from(document.querySelectorAll("#layer-tbody tr")).map((tr) => {
+    const fromStr = tr.querySelector(".layer-from").value;
+    const toStr = tr.querySelector(".layer-to").value;
+    const rate = parseNum(tr.querySelector(".layer-rate").value);
+    const fromDt = fromStr ? new Date(fromStr + "T00:00:00") : null;
+    const toDt = toStr ? new Date(toStr + "T00:00:00") : null;
+    return {
+      fromDate: fromStr || null,
+      toDate: toStr || null,
+      from: fromDt ? dateToInstIdx(fromDt, disbursement, modality, "from") : null,
+      to: toDt ? dateToInstIdx(toDt, disbursement, modality, "to") : null,
+      rate: isNaN(rate) ? null : rate,
+    };
+  });
+}
+
+function addLayerRow(fromIdx, toIdx, rate) {
+  const disbursement = readExDisbursement();
+  const modality = document.getElementById("ex-modality").value;
+  const fromDate = (disbursement && fromIdx) ? fmtDateInputValue(instIdxToDate(fromIdx, disbursement, modality)) : "";
+  const toDate = (disbursement && toIdx) ? fmtDateInputValue(instIdxToDate(toIdx, disbursement, modality)) : "";
   const tbody = document.getElementById("layer-tbody");
   const tr = document.createElement("tr");
   tr.innerHTML =
-    `<td><select class="layer-from">${makeInstallmentOptions(tenure, from)}</select></td>` +
-    `<td><select class="layer-to">${makeInstallmentOptions(tenure, to)}</select></td>` +
+    `<td><input type="date" class="layer-from" value="${fromDate}"></td>` +
+    `<td><input type="date" class="layer-to" value="${toDate}"></td>` +
     `<td><input type="text" inputmode="decimal" class="layer-rate" placeholder="0.00" value="${rate != null ? rate : ""}"></td>` +
     `<td><button type="button" class="layer-remove" aria-label="Remove layer">✕</button></td>`;
   tbody.appendChild(tr);
-  validateLayers();
-}
-
-function rebuildLayerDropdowns() {
-  const tenure = getExTenure();
-  document.querySelectorAll("#layer-tbody tr").forEach((tr) => {
-    ["layer-from", "layer-to"].forEach((cls) => {
-      const sel = tr.querySelector("." + cls);
-      const current = parseInt(sel.value, 10);
-      const keep = Number.isFinite(current) && current >= 1 && current <= tenure ? current : null;
-      sel.innerHTML = makeInstallmentOptions(tenure, keep);
-    });
-  });
   validateLayers();
 }
 
@@ -1049,19 +1153,19 @@ function validateLayers() {
   status.className = "layer-status";
   status.textContent = "";
   const tenure = getExTenure();
-  if (tenure <= 0) {
-    status.textContent = "Enter tenure to enable layer validation.";
-    return;
-  }
+  const disbursement = readExDisbursement();
+  if (!disbursement) { status.textContent = "Enter the disbursement date to enable layer validation."; return; }
+  if (tenure <= 0) { status.textContent = "Enter tenure to enable layer validation."; return; }
   const layers = readLayers();
-  if (layers.length === 0) {
-    status.textContent = "No layers yet. Click + Add Layer to start.";
+  if (layers.length === 0) { status.textContent = "No layers yet. Click + Add Layer to start."; return; }
+  if (layers.some((l) => !l.fromDate || !l.toDate || l.rate == null)) {
+    status.classList.add("error");
+    status.textContent = "Each layer needs From Date, To Date, and Rate.";
     return;
   }
-  const incomplete = layers.some((l) => l.from == null || l.to == null || l.rate == null);
-  if (incomplete) {
+  if (layers.some((l) => l.from == null || l.to == null)) {
     status.classList.add("error");
-    status.textContent = "Each layer needs From, To, and Rate.";
+    status.textContent = "Some dates can't be mapped to installments. Check they're after disbursement.";
     return;
   }
   const sorted = layers.slice().sort((a, b) => a.from - b.from);
@@ -1069,22 +1173,22 @@ function validateLayers() {
   for (const l of sorted) {
     if (l.from < 1 || l.to > tenure || l.from > l.to) {
       status.classList.add("error");
-      status.textContent = `Layer ${l.from}–${l.to} is out of range or has From > To.`;
+      status.textContent = `Layer ${l.fromDate} → ${l.toDate} is out of range or From > To.`;
       return;
     }
     if (l.rate < 0) {
       status.classList.add("error");
-      status.textContent = `Layer ${l.from}–${l.to}: rate cannot be negative.`;
+      status.textContent = `Layer ${l.fromDate} → ${l.toDate}: rate cannot be negative.`;
       return;
     }
     if (l.from <= lastTo) {
       status.classList.add("error");
-      status.textContent = `Layers overlap at installment ${l.from}.`;
+      status.textContent = `Layers overlap at installment ${l.from} (date ${l.fromDate}).`;
       return;
     }
     if (l.from !== lastTo + 1) {
       status.classList.add("error");
-      status.textContent = `Gap before installment ${l.from}. Previous layer ended at ${lastTo}.`;
+      status.textContent = `Gap before installment ${l.from} (date ${l.fromDate}). Previous layer ended at installment ${lastTo}.`;
       return;
     }
     lastTo = l.to;
@@ -1098,11 +1202,10 @@ function validateLayers() {
   status.textContent = `✓ All ${tenure} installments covered by ${layers.length} layer${layers.length > 1 ? "s" : ""}.`;
 }
 
-function buildLayeredSchedule(P, modality, tenure, layers) {
+function buildLayeredSchedule(P, modality, tenure, layers, customPrincipals) {
   // For EMI/EQI: at the start of each layer, recompute the installment to amortise the current
-  // outstanding balance over the remaining tenure (from the layer's start to the loan end) at the layer's rate.
-  // Apply that installment for the periods in this layer, then move to the next layer with the new rate.
-  // Other modalities follow their natural rules with rate switching per layer.
+  // outstanding balance over the remaining tenure at the layer's rate.
+  // CUST: principal per period is supplied by the user; interest uses the current layer's rate.
   const periods = ppy(modality);
   const sorted = layers.slice().sort((a, b) => a.from - b.from);
   const rows = [];
@@ -1111,7 +1214,7 @@ function buildLayeredSchedule(P, modality, tenure, layers) {
   for (const layer of sorted) {
     const r = (layer.rate / 100) / periods;
     const layerLen = layer.to - layer.from + 1;
-    const remainingTenure = tenure - (layer.from - 1); // from start of this layer to end of loan
+    const remainingTenure = tenure - (layer.from - 1);
 
     if (modality === "EMI" || modality === "EQI") {
       const pmt = r === 0
@@ -1121,7 +1224,7 @@ function buildLayeredSchedule(P, modality, tenure, layers) {
         const period = layer.from + j;
         const interest = bal * r;
         let principal = pmt - interest;
-        if (period === tenure) principal = bal; // close-out for rounding
+        if (period === tenure) principal = bal;
         const payment = principal + interest;
         bal -= principal;
         rows.push({ period, payment, principal, interest, balance: Math.max(bal, 0), rate: layer.rate });
@@ -1145,12 +1248,21 @@ function buildLayeredSchedule(P, modality, tenure, layers) {
         if (isLast) bal = 0;
         rows.push({ period, payment, principal, interest, balance: bal, rate: layer.rate });
       }
+    } else if (modality === "CUST") {
+      for (let j = 0; j < layerLen; j++) {
+        const period = layer.from + j;
+        const interest = bal * r;
+        const principal = (customPrincipals && customPrincipals[period - 1]) || 0;
+        const payment = principal + interest;
+        bal -= principal;
+        rows.push({ period, payment, principal, interest, balance: Math.max(bal, 0), rate: layer.rate });
+      }
     }
   }
   return rows;
 }
 
-// ----- FDR layers (existing loan) -----
+// ----- FDR layers (existing loan) — date-based -----
 function getTotalMonths() {
   const tenure = getExTenure();
   const modality = document.getElementById("ex-modality").value;
@@ -1158,54 +1270,39 @@ function getTotalMonths() {
   return tenure * (ppy(modality) === 12 ? 1 : 3);
 }
 
-function makeMonthOptions(totalMonths, selected) {
-  let html = '<option value="">— select —</option>';
-  for (let i = 1; i <= totalMonths; i++) {
-    const sel = i === selected ? " selected" : "";
-    html += `<option value="${i}"${sel}>Month - ${i}</option>`;
-  }
-  return html;
-}
-
 function readFdrLayers() {
+  const disbursement = readExDisbursement();
   return Array.from(document.querySelectorAll("#fdr-tbody tr")).map((tr) => {
-    const from = parseInt(tr.querySelector(".fdr-from").value, 10);
-    const to = parseInt(tr.querySelector(".fdr-to").value, 10);
+    const fromStr = tr.querySelector(".fdr-from").value;
+    const toStr = tr.querySelector(".fdr-to").value;
     const amount = parseNum(tr.querySelector(".fdr-amount").value);
     const rate = parseNum(tr.querySelector(".fdr-rate").value);
+    const fromDt = fromStr ? new Date(fromStr + "T00:00:00") : null;
+    const toDt = toStr ? new Date(toStr + "T00:00:00") : null;
     return {
-      from: Number.isFinite(from) ? from : null,
-      to: Number.isFinite(to) ? to : null,
+      fromDate: fromStr || null,
+      toDate: toStr || null,
+      from: fromDt ? dateToMonthIdx(fromDt, disbursement, "from") : null,
+      to: toDt ? dateToMonthIdx(toDt, disbursement, "to") : null,
       amount: isNaN(amount) ? null : amount,
       rate: isNaN(rate) ? null : rate,
     };
   });
 }
 
-function addFdrLayerRow(from, to, amount, rate) {
-  const totalMonths = getTotalMonths();
+function addFdrLayerRow(fromIdx, toIdx, amount, rate) {
+  const disbursement = readExDisbursement();
+  const fromDate = (disbursement && fromIdx) ? fmtDateInputValue(instIdxToDate(fromIdx, disbursement, "EMI")) : "";
+  const toDate = (disbursement && toIdx) ? fmtDateInputValue(instIdxToDate(toIdx, disbursement, "EMI")) : "";
   const tbody = document.getElementById("fdr-tbody");
   const tr = document.createElement("tr");
   tr.innerHTML =
-    `<td><select class="fdr-from">${makeMonthOptions(totalMonths, from)}</select></td>` +
-    `<td><select class="fdr-to">${makeMonthOptions(totalMonths, to)}</select></td>` +
+    `<td><input type="date" class="fdr-from" value="${fromDate}"></td>` +
+    `<td><input type="date" class="fdr-to" value="${toDate}"></td>` +
     `<td><input type="text" inputmode="decimal" class="fdr-amount" placeholder="0" value="${amount != null ? amount : ""}"></td>` +
     `<td><input type="text" inputmode="decimal" class="fdr-rate" placeholder="0.00" value="${rate != null ? rate : ""}"></td>` +
     `<td><button type="button" class="layer-remove" aria-label="Remove FDR layer">✕</button></td>`;
   tbody.appendChild(tr);
-  validateFdrLayers();
-}
-
-function rebuildFdrLayerDropdowns() {
-  const totalMonths = getTotalMonths();
-  document.querySelectorAll("#fdr-tbody tr").forEach((tr) => {
-    ["fdr-from", "fdr-to"].forEach((cls) => {
-      const sel = tr.querySelector("." + cls);
-      const current = parseInt(sel.value, 10);
-      const keep = Number.isFinite(current) && current >= 1 && current <= totalMonths ? current : null;
-      sel.innerHTML = makeMonthOptions(totalMonths, keep);
-    });
-  });
   validateFdrLayers();
 }
 
@@ -1214,9 +1311,15 @@ function validateFdrLayers() {
   status.className = "layer-status";
   status.textContent = "";
   const totalMonths = getTotalMonths();
+  const disbursement = readExDisbursement();
   const layers = readFdrLayers();
   if (layers.length === 0) {
     status.textContent = "No FDR layers — calculator will assume no cash security.";
+    return;
+  }
+  if (!disbursement) {
+    status.classList.add("error");
+    status.textContent = "Enter the disbursement date first.";
     return;
   }
   if (totalMonths <= 0) {
@@ -1224,10 +1327,14 @@ function validateFdrLayers() {
     status.textContent = "Enter tenure first.";
     return;
   }
-  const incomplete = layers.some((l) => l.from == null || l.to == null || l.amount == null || l.rate == null);
-  if (incomplete) {
+  if (layers.some((l) => !l.fromDate || !l.toDate || l.amount == null || l.rate == null)) {
     status.classList.add("error");
-    status.textContent = "Each FDR layer needs From, To, Amount, and Rate.";
+    status.textContent = "Each FDR layer needs From Date, To Date, Amount, and Rate.";
+    return;
+  }
+  if (layers.some((l) => l.from == null || l.to == null)) {
+    status.classList.add("error");
+    status.textContent = "Some FDR dates can't be mapped to months. Check they're after disbursement.";
     return;
   }
   const sorted = layers.slice().sort((a, b) => a.from - b.from);
@@ -1235,29 +1342,29 @@ function validateFdrLayers() {
   for (const l of sorted) {
     if (l.from < 1 || l.to > totalMonths || l.from > l.to) {
       status.classList.add("error");
-      status.textContent = `Layer Month ${l.from}–${l.to} is out of range or has From > To.`;
+      status.textContent = `FDR layer ${l.fromDate} → ${l.toDate} is out of range or From > To.`;
       return;
     }
     if (l.amount < 0 || l.rate < 0) {
       status.classList.add("error");
-      status.textContent = `Layer Month ${l.from}–${l.to}: amount and rate must be ≥ 0.`;
+      status.textContent = `FDR layer ${l.fromDate} → ${l.toDate}: amount and rate must be ≥ 0.`;
       return;
     }
     if (l.from <= lastTo) {
       status.classList.add("error");
-      status.textContent = `FDR layers overlap at Month ${l.from}.`;
+      status.textContent = `FDR layers overlap around ${l.fromDate}.`;
       return;
     }
     if (l.from !== lastTo + 1) {
       status.classList.add("error");
-      status.textContent = `Gap before Month ${l.from}. Previous FDR layer ended at Month ${lastTo}.`;
+      status.textContent = `Gap before ${l.fromDate}. Previous FDR layer ended at month ${lastTo}.`;
       return;
     }
     lastTo = l.to;
   }
   if (lastTo !== totalMonths) {
     status.classList.add("error");
-    status.textContent = `FDR layers cover up to Month ${lastTo}; loan runs to Month ${totalMonths}.`;
+    status.textContent = `FDR layers cover up to month ${lastTo}; loan runs to month ${totalMonths}.`;
     return;
   }
   status.classList.add("ok");
@@ -1324,49 +1431,30 @@ function computeFdrCashflowsLayered(fdrLayers, modality, tenure, renewalOption) 
   return { initialAmount, periodFlows };
 }
 
-document.getElementById("ex-tenure").addEventListener("input", () => {
-  rebuildLayerDropdowns();
-  rebuildFdrLayerDropdowns();
-});
-document.getElementById("ex-modality").addEventListener("change", rebuildFdrLayerDropdowns);
-document.getElementById("fdr-add").addEventListener("click", () => {
-  const totalMonths = getTotalMonths();
-  const layers = readFdrLayers();
-  const lastTo = layers
-    .filter((l) => Number.isFinite(l.to))
-    .reduce((m, l) => Math.max(m, l.to), 0);
-  const lastAmount = layers.length > 0 ? layers[layers.length - 1].amount : null;
-  const defaultFrom = lastTo > 0 && lastTo < totalMonths ? lastTo + 1 : (totalMonths > 0 ? 1 : null);
-  const defaultTo = totalMonths > 0 ? totalMonths : null;
-  addFdrLayerRow(defaultFrom, defaultTo, lastAmount, null);
-});
-document.getElementById("fdr-tbody").addEventListener("input", (e) => {
-  if (e.target.classList.contains("fdr-amount") || e.target.classList.contains("fdr-rate")) {
-    stripMinus(e.target);
-  }
+// Re-validate everything when loan context (tenure / disbursement / modality) changes
+function exContextChanged() {
+  updateMaturityDisplay();
+  validateLayers();
   validateFdrLayers();
+}
+document.getElementById("ex-tenure").addEventListener("input", () => {
+  rebuildExCustomTable();
+  exContextChanged();
 });
-document.getElementById("fdr-tbody").addEventListener("change", (e) => {
-  if (e.target.classList.contains("fdr-from") || e.target.classList.contains("fdr-to")) {
-    validateFdrLayers();
-  }
+document.getElementById("ex-disbursement").addEventListener("change", exContextChanged);
+document.getElementById("ex-modality").addEventListener("change", () => {
+  rebuildExCustomTable();
+  exContextChanged();
 });
-document.getElementById("fdr-tbody").addEventListener("click", (e) => {
-  if (e.target.classList.contains("layer-remove")) {
-    e.target.closest("tr").remove();
-    validateFdrLayers();
-  }
-});
+document.getElementById("ex-amount").addEventListener("input", recalcExCustomTable);
 
 document.getElementById("layer-add").addEventListener("click", () => {
   const tenure = getExTenure();
   const layers = readLayers();
-  const sortedLastTo = layers
-    .filter((l) => Number.isFinite(l.to))
-    .reduce((m, l) => Math.max(m, l.to), 0);
-  const defaultFrom = sortedLastTo > 0 && sortedLastTo < tenure ? sortedLastTo + 1 : (tenure > 0 ? 1 : null);
-  const defaultTo = tenure > 0 ? tenure : null;
-  addLayerRow(defaultFrom, defaultTo, null);
+  const lastTo = layers.filter((l) => Number.isFinite(l.to)).reduce((m, l) => Math.max(m, l.to), 0);
+  const defaultFromIdx = lastTo > 0 && lastTo < tenure ? lastTo + 1 : (tenure > 0 ? 1 : null);
+  const defaultToIdx = tenure > 0 ? tenure : null;
+  addLayerRow(defaultFromIdx, defaultToIdx, null);
 });
 document.getElementById("layer-tbody").addEventListener("input", (e) => {
   if (e.target.classList.contains("layer-rate")) stripMinus(e.target);
@@ -1384,6 +1472,31 @@ document.getElementById("layer-tbody").addEventListener("click", (e) => {
   }
 });
 
+document.getElementById("fdr-add").addEventListener("click", () => {
+  const totalMonths = getTotalMonths();
+  const layers = readFdrLayers();
+  const lastTo = layers.filter((l) => Number.isFinite(l.to)).reduce((m, l) => Math.max(m, l.to), 0);
+  const lastAmount = layers.length > 0 ? layers[layers.length - 1].amount : null;
+  const defaultFromIdx = lastTo > 0 && lastTo < totalMonths ? lastTo + 1 : (totalMonths > 0 ? 1 : null);
+  const defaultToIdx = totalMonths > 0 ? totalMonths : null;
+  addFdrLayerRow(defaultFromIdx, defaultToIdx, lastAmount, null);
+});
+document.getElementById("fdr-tbody").addEventListener("input", (e) => {
+  if (e.target.classList.contains("fdr-amount") || e.target.classList.contains("fdr-rate")) stripMinus(e.target);
+  validateFdrLayers();
+});
+document.getElementById("fdr-tbody").addEventListener("change", (e) => {
+  if (e.target.classList.contains("fdr-from") || e.target.classList.contains("fdr-to")) {
+    validateFdrLayers();
+  }
+});
+document.getElementById("fdr-tbody").addEventListener("click", (e) => {
+  if (e.target.classList.contains("layer-remove")) {
+    e.target.closest("tr").remove();
+    validateFdrLayers();
+  }
+});
+
 document.getElementById("ex-calc").addEventListener("click", () => {
   const out = document.getElementById("ex-output");
   out.innerHTML = "";
@@ -1393,33 +1506,33 @@ document.getElementById("ex-calc").addEventListener("click", () => {
   const tenure = getExTenure();
   const layers = readLayers();
   const fdrLayers = readFdrLayers();
-  const fdrRenewalOption = document.getElementById("ex-fdr-renewal").value;
   const cofRaw = parseNum(document.getElementById("ex-cof").value);
-  const opexRaw = parseNum(document.getElementById("ex-opex").value);
-  const cof = isNaN(cofRaw) ? 0 : cofRaw;
-  const opex = isNaN(opexRaw) ? 0 : opexRaw;
-  const totalCof = cof + opex;
+  const totalCof = isNaN(cofRaw) ? 0 : cofRaw;
+  const disbursement = readExDisbursement();
+  const fdrRenewalOption = "principal"; // UI removed; default for IRR cashflow construction
 
   const errs = [];
   if (!(P > 0)) errs.push("Original loan amount must be positive.");
   if (!(tenure > 0)) errs.push("Original tenure must be a positive whole number.");
-  if (cof < 0) errs.push("Treasury COF cannot be negative.");
-  if (opex < 0) errs.push("Deposit OPEX cannot be negative.");
+  if (!disbursement) errs.push("Disbursement date is required.");
+  if (totalCof < 0) errs.push("Cost of Fund cannot be negative.");
   if (layers.length === 0) errs.push("Add at least one rate layer.");
-  if (layers.some((l) => l.from == null || l.to == null || l.rate == null))
-    errs.push("Each rate layer needs From, To, and Rate.");
+  if (layers.some((l) => !l.fromDate || !l.toDate || l.rate == null))
+    errs.push("Each rate layer needs From Date, To Date, and Rate.");
+  if (layers.some((l) => l.from == null || l.to == null))
+    errs.push("Some rate-layer dates couldn't be mapped to installments. Check they're after disbursement.");
 
   if (errs.length === 0) {
     const sorted = layers.slice().sort((a, b) => a.from - b.from);
     let lastTo = 0;
     for (const l of sorted) {
       if (l.from < 1 || l.to > tenure || l.from > l.to) {
-        errs.push(`Rate layer ${l.from}–${l.to} is out of range or has From > To.`);
+        errs.push(`Rate layer ${l.fromDate} → ${l.toDate} is out of range or has From > To.`);
         break;
       }
-      if (l.rate < 0) { errs.push(`Rate layer ${l.from}–${l.to}: rate cannot be negative.`); break; }
-      if (l.from <= lastTo) { errs.push(`Rate layers overlap at installment ${l.from}.`); break; }
-      if (l.from !== lastTo + 1) { errs.push(`Gap before installment ${l.from}. Previous rate layer ended at ${lastTo}.`); break; }
+      if (l.rate < 0) { errs.push(`Rate layer ${l.fromDate} → ${l.toDate}: rate cannot be negative.`); break; }
+      if (l.from <= lastTo) { errs.push(`Rate layers overlap at installment ${l.from} (${l.fromDate}).`); break; }
+      if (l.from !== lastTo + 1) { errs.push(`Gap before installment ${l.from} (${l.fromDate}). Previous layer ended at installment ${lastTo}.`); break; }
       lastTo = l.to;
     }
     if (errs.length === 0 && lastTo !== tenure) {
@@ -1427,36 +1540,53 @@ document.getElementById("ex-calc").addEventListener("click", () => {
     }
   }
 
+  // Customized schedule (only when CUST modality)
+  let customPrincipals = null;
+  if (errs.length === 0 && modality === "CUST") {
+    customPrincipals = readExCustomPrincipals();
+    if (customPrincipals.length !== tenure) {
+      errs.push(`Customized schedule has ${customPrincipals.length} rows but ${tenure} periods expected.`);
+    } else {
+      const sumP = customPrincipals.reduce((s, x) => s + x, 0);
+      if (Math.abs(sumP - P) > 0.5) {
+        errs.push(`Sum of customized principals (${fmt(sumP)}) must equal the loan amount (${fmt(P)}). Difference: ${fmt(sumP - P)}.`);
+      }
+      if (customPrincipals.some((x) => x < 0)) errs.push("Customized principals cannot be negative.");
+    }
+  }
+
   // FDR layers — only validated if any are present
   if (errs.length === 0 && fdrLayers.length > 0) {
     const totalMonths = tenure * (ppy(modality) === 12 ? 1 : 3);
-    if (fdrLayers.some((l) => l.from == null || l.to == null || l.amount == null || l.rate == null)) {
-      errs.push("Each FDR layer needs From, To, Amount, and Rate.");
+    if (fdrLayers.some((l) => !l.fromDate || !l.toDate || l.amount == null || l.rate == null)) {
+      errs.push("Each FDR layer needs From Date, To Date, Amount, and Rate.");
+    } else if (fdrLayers.some((l) => l.from == null || l.to == null)) {
+      errs.push("Some FDR layer dates couldn't be mapped to months. Check they're after disbursement.");
     } else {
       const sortedFdr = fdrLayers.slice().sort((a, b) => a.from - b.from);
       let lastTo = 0;
       for (const l of sortedFdr) {
         if (l.from < 1 || l.to > totalMonths || l.from > l.to) {
-          errs.push(`FDR layer Month ${l.from}–${l.to} is out of range or has From > To.`);
+          errs.push(`FDR layer ${l.fromDate} → ${l.toDate} is out of range or From > To.`);
           break;
         }
         if (l.amount < 0 || l.rate < 0) {
-          errs.push(`FDR layer Month ${l.from}–${l.to}: amount and rate must be ≥ 0.`);
+          errs.push(`FDR layer ${l.fromDate} → ${l.toDate}: amount and rate must be ≥ 0.`);
           break;
         }
-        if (l.from <= lastTo) { errs.push(`FDR layers overlap at Month ${l.from}.`); break; }
-        if (l.from !== lastTo + 1) { errs.push(`FDR gap before Month ${l.from}. Previous FDR layer ended at Month ${lastTo}.`); break; }
+        if (l.from <= lastTo) { errs.push(`FDR layers overlap around ${l.fromDate}.`); break; }
+        if (l.from !== lastTo + 1) { errs.push(`FDR gap before ${l.fromDate}.`); break; }
         lastTo = l.to;
       }
       if (errs.length === 0 && lastTo !== totalMonths) {
-        errs.push(`FDR layers cover up to Month ${lastTo}; loan runs to Month ${totalMonths}.`);
+        errs.push(`FDR layers cover up to month ${lastTo}; loan runs to month ${totalMonths}.`);
       }
     }
   }
 
   if (errs.length) { out.innerHTML = `<div class="error">${errs.join("<br>")}</div>`; return; }
 
-  const sched = buildLayeredSchedule(P, modality, tenure, layers);
+  const sched = buildLayeredSchedule(P, modality, tenure, layers, customPrincipals);
   const periods = ppy(modality);
 
   // FDR benefit (NIM+COF method): summed across layers, weighted by each layer's duration in months
@@ -1486,9 +1616,12 @@ document.getElementById("ex-calc").addEventListener("click", () => {
   const minR = Math.min(...rates), maxR = Math.max(...rates);
   const rateRangeStr = minR === maxR ? `${minR.toFixed(2)}%` : `${minR.toFixed(2)}% – ${maxR.toFixed(2)}%`;
   const hasFdr = fdrLayers.length > 0;
+  const maturityDate = instIdxToDate(tenure, disbursement, modality);
 
   const items = [
     ["Modality", modalityLabel(modality)],
+    ["Disbursement", fmtDateInputValue(disbursement)],
+    ["Maturity", fmtDateInputValue(maturityDate)],
     ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
     ["Rate Layers", `${layers.length} (${rateRangeStr})`],
     ["Yield on Lending (YOL)", fmtPct(bm.yol)],
@@ -1513,7 +1646,6 @@ document.getElementById("ex-calc").addEventListener("click", () => {
     items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
     items.push([`FDR Layers (${fdrLayers.length})`, fdrAmtRange]);
     items.push(["FDR Rate Range", fdrRateRange]);
-    items.push(["FDR Renewal", fdrRenewalOption === "principal" ? "Principal only" : "Principal + interest"]);
   } else {
     items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
   }
@@ -1562,9 +1694,11 @@ function renderResult({ headlineLabel, headline, sublabel, items, schedule, sche
   `;
 }
 
-// Initial layer validation messages on page load
+// Initial validation/render passes on page load
 validateLayers();
 validateFdrLayers();
+updateMaturityDisplay();
+if (typeof rebuildExCustomTable === "function") rebuildExCustomTable();
 
 // ----- customized schedule table -----
 function readCustomPrincipals() {
@@ -1690,6 +1824,117 @@ document.getElementById("cust-balance-last").addEventListener("change", () => {
   recalcCustomTable();
 });
 
+// ----- Customized schedule (Existing Loan) -----
+function readExCustomPrincipals() {
+  return Array.from(document.querySelectorAll("#ex-cust-tbody input.cust-principal"))
+    .map((el) => parseNum(el.value))
+    .map((v) => (isNaN(v) ? 0 : v));
+}
+
+function rebuildExCustomTable() {
+  const modality = document.getElementById("ex-modality").value;
+  const section = document.getElementById("ex-cust-section");
+  const show = modality === "CUST";
+  section.classList.toggle("hidden", !show);
+  if (!show) return;
+  const n = getExTenure();
+  if (!(n > 0)) {
+    document.getElementById("ex-cust-tbody").innerHTML = "";
+    updateExCustomSummary();
+    return;
+  }
+  const tbody = document.getElementById("ex-cust-tbody");
+  const existing = readExCustomPrincipals();
+  const html = [];
+  for (let i = 1; i <= n; i++) {
+    const v = existing[i - 1] != null && existing[i - 1] > 0 ? existing[i - 1] : "";
+    html.push(
+      `<tr><td>${i}</td>` +
+      `<td><input type="text" inputmode="decimal" class="cust-principal" data-row="${i}" value="${v}"></td>` +
+      `<td class="cust-interest">—</td>` +
+      `<td class="cust-payment">—</td>` +
+      `<td class="cust-balance">—</td></tr>`
+    );
+  }
+  tbody.innerHTML = html.join("");
+  recalcExCustomTable();
+}
+
+function recalcExCustomTable() {
+  applyExAutoFillLastRow();
+  const P = parseNum(document.getElementById("ex-amount").value);
+  const validP = !isNaN(P) && P > 0;
+  // For visual feedback only: use the first rate layer's rate (or 0) to compute interest preview.
+  const layers = readLayers();
+  const firstRate = layers.length > 0 && layers[0].rate != null ? layers[0].rate : 0;
+  const r = (firstRate / 100) / 12;
+  let bal = validP ? P : 0;
+  let sum = 0;
+  document.querySelectorAll("#ex-cust-tbody tr").forEach((tr) => {
+    const principalInput = tr.querySelector(".cust-principal");
+    const principal = parseNum(principalInput.value);
+    const p = isNaN(principal) ? 0 : principal;
+    const interest = bal * r;
+    const payment = p + interest;
+    bal -= p;
+    sum += p;
+    tr.querySelector(".cust-interest").textContent = validP ? fmt(interest) : "—";
+    tr.querySelector(".cust-payment").textContent = validP ? fmt(payment) : "—";
+    tr.querySelector(".cust-balance").textContent = validP ? fmt(bal) : "—";
+  });
+  updateExCustomSummary(sum, validP ? P : null);
+}
+
+function updateExCustomSummary(sum, P) {
+  if (sum === undefined) sum = readExCustomPrincipals().reduce((s, x) => s + x, 0);
+  const sumEl = document.getElementById("ex-cust-sum");
+  const targetEl = document.getElementById("ex-cust-target");
+  const status = document.getElementById("ex-cust-status");
+  if (!sumEl || !targetEl || !status) return;
+  sumEl.textContent = fmt(sum);
+  targetEl.textContent = P != null ? fmt(P) : "—";
+  status.classList.remove("match", "mismatch");
+  if (P == null) { status.textContent = ""; return; }
+  const diff = sum - P;
+  if (Math.abs(diff) < 0.5) {
+    status.textContent = "✓ matches loan amount";
+    status.classList.add("match");
+  } else {
+    status.textContent = diff > 0 ? `over by ${fmt(diff)}` : `short by ${fmt(-diff)}`;
+    status.classList.add("mismatch");
+  }
+}
+
+function applyExAutoFillLastRow() {
+  const toggle = document.getElementById("ex-cust-balance-last");
+  const inputs = Array.from(document.querySelectorAll("#ex-cust-tbody input.cust-principal"));
+  if (inputs.length === 0) return;
+  const lastInput = inputs[inputs.length - 1];
+  const enabled = !!(toggle && toggle.checked);
+  lastInput.readOnly = enabled;
+  lastInput.classList.toggle("autofilled", enabled);
+  if (!enabled) return;
+  const P = parseNum(document.getElementById("ex-amount").value);
+  if (!(P > 0)) { lastInput.value = ""; return; }
+  const others = inputs.slice(0, -1).reduce((s, el) => {
+    const v = parseNum(el.value);
+    return s + (isNaN(v) ? 0 : v);
+  }, 0);
+  const last = Math.max(0, P - others);
+  lastInput.value = last > 0 ? last.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0";
+}
+
+document.getElementById("ex-cust-tbody").addEventListener("input", (e) => {
+  if (e.target.classList.contains("cust-principal")) {
+    stripMinus(e.target);
+    formatAmountLive(e.target);
+    recalcExCustomTable();
+  }
+});
+document.getElementById("ex-cust-balance-last").addEventListener("change", () => {
+  recalcExCustomTable();
+});
+
 // ----- input formatting: strip negatives, live comma formatting on amount fields -----
 function stripMinus(el) {
   if (el.value.indexOf("-") >= 0) el.value = el.value.replace(/-/g, "");
@@ -1728,7 +1973,7 @@ function formatAmountLive(el) {
 });
 
 // Non-amount numeric fields (rates, counts): just strip negatives — no commas.
-["new-rate", "new-fdr-rate", "new-sec-installments", "new-cof", "new-opex", "ex-cof", "ex-opex"].forEach((id) => {
+["new-rate", "new-fdr-rate", "new-sec-installments", "new-cof", "ex-cof"].forEach((id) => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("input", () => stripMinus(el));
