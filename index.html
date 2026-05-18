@@ -236,6 +236,27 @@
     font-size: 13px;
     text-align: center;
   }
+  .download-excel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.32);
+    color: white;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+  .download-excel:hover, .download-excel:focus {
+    background: rgba(255,255,255,0.3);
+    outline: none;
+  }
   input[type=text], input[type=number], select, textarea {
     width: 100%;
     padding: 12px;
@@ -1028,6 +1049,46 @@ document.getElementById("new-calc").addEventListener("click", () => {
 
   const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
+  // Persist a compact snapshot for the Download Excel button.
+  const newSecLabel = securityType === "fdr" ? "FDR" : securityType === "cash" ? "Cash Security" : securityType === "emi" ? "EMI" : "EQI";
+  const newSecAmtRow = fdrAmount > 0
+    ? (usesInstallments ? `${numInstallments} × ${newSecLabel} (security amount hidden by design)` : fmt(fdrAmount))
+    : "None";
+  lastResultData = {
+    title: "New Loan — Effective Rate Calculation",
+    inputs: [
+      ["Loan Amount", fmt(P)],
+      ["Offered Interest Rate", `${rate.toFixed(4)}%`],
+      ["Payment Modality", modalityLabel(modality)],
+      ["Number of Payments", String(n)],
+      ["Cost of Fund (Total)", `${totalCof.toFixed(4)}%`],
+      ["Security Type", newSecLabel],
+      ["Security Amount", newSecAmtRow],
+      ["Security Interest Rate", fdrAmount > 0 ? `${fdrRate.toFixed(4)}%` : "—"],
+      ["Renewal Option", fdrAmount > 0 ? (renewalOption === "principal" ? "Principal only" : "Principal + interest") : "—"],
+    ],
+    results: [
+      ["Effective Rate (Bank Yield, NIM + COF)", fmtPct(bm.effectiveRate)],
+      [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
+      ["Yield on Lending (YOL)", fmtPct(bm.yol)],
+      ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+      ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
+      ["Tenure (years)", bm.tenureYears.toFixed(4)],
+      ["Avg Portfolio", fmt(bm.avgPortfolio)],
+      ["Total Interest Income", fmt(bm.totalIntIncome)],
+      ["Total Funding Cost", fmt(bm.totalIntExpense)],
+      ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
+      ["Net Interest Income (NII)", fmt(bm.nii)],
+      ["First Installment", fmt(firstPmt)],
+      ["Last Installment", fmt(lastPmt)],
+      ["Total Collected", fmt(totalCollected)],
+    ],
+    schedule: {
+      headers: ["Period", "Payment", "Principal", "Interest", "Balance"],
+      rows: sched.map((r) => [r.period, r.payment.toFixed(2), r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2)]),
+    },
+  };
+
   out.innerHTML = renderResult({
     headlineLabel: "Effective Rate (Bank Yield, NIM + COF)",
     headline: isFinite(bm.effectiveRate) ? fmtPct(bm.effectiveRate) : "—",
@@ -1655,6 +1716,46 @@ document.getElementById("ex-calc").addEventListener("click", () => {
 
   const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
+  // Snapshot for the Download Excel button
+  lastResultData = {
+    title: "Existing Loan — Effective Rate Calculation",
+    inputs: [
+      ["Original Loan Amount", fmt(P)],
+      ["Payment Modality", modalityLabel(modality)],
+      ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
+      ["Disbursement Date", fmtDateInputValue(disbursement)],
+      ["Maturity Date", fmtDateInputValue(maturityDate)],
+      ["Cost of Fund (Total)", `${totalCof.toFixed(4)}%`],
+    ],
+    rateLayers: {
+      headers: ["From Date", "To Date", "From Inst.", "To Inst.", "Rate (%)"],
+      rows: layers.map((l) => [l.fromDate, l.toDate, l.from, l.to, l.rate.toFixed(4)]),
+    },
+    fdrLayers: hasFdr ? {
+      headers: ["From Date", "To Date", "From Month", "To Month", "Amount", "Rate (%)"],
+      rows: fdrLayers.map((l) => [l.fromDate, l.toDate, l.from, l.to, fmt(l.amount), l.rate.toFixed(4)]),
+    } : null,
+    results: [
+      ["Effective Rate (Bank Yield, NIM + COF)", fmtPct(bm.effectiveRate)],
+      [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
+      ["Yield on Lending (YOL, blended)", fmtPct(bm.yol)],
+      ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+      ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
+      ["Avg Portfolio", fmt(bm.avgPortfolio)],
+      ["Total Interest Income", fmt(bm.totalIntIncome)],
+      ["Total Funding Cost", fmt(bm.totalIntExpense)],
+      ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
+      ["Net Interest Income (NII)", fmt(bm.nii)],
+      ["First Installment", fmt(firstPmt)],
+      ["Last Installment", fmt(lastPmt)],
+      ["Total Collected", fmt(totalCollected)],
+    ],
+    schedule: {
+      headers: ["Period", "Payment", "Principal", "Interest", "Balance", "Rate (%)"],
+      rows: sched.map((r) => [r.period, r.payment.toFixed(2), r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2), r.rate.toFixed(4)]),
+    },
+  };
+
   out.innerHTML = renderResult({
     headlineLabel: "Effective Rate (Bank Yield, NIM + COF)",
     headline: isFinite(bm.effectiveRate) ? fmtPct(bm.effectiveRate) : "—",
@@ -1681,6 +1782,7 @@ function renderResult({ headlineLabel, headline, sublabel, items, schedule, sche
       <div class="value">${headline}</div>
       ${sublabel ? `<div class="sublabel">${sublabel}</div>` : ""}
       <div class="result-grid">${grid}</div>
+      <button class="download-excel" type="button">⬇ Download Excel</button>
     </div>
     <details>
       <summary>${scheduleLabel} (${schedule.length} rows)</summary>
@@ -1693,6 +1795,97 @@ function renderResult({ headlineLabel, headline, sublabel, items, schedule, sche
     </details>
   `;
 }
+
+// ----- Excel download -----
+// Stores the latest calc result so the download button can build a worksheet from it.
+// Uses the HTML-as-XLS format: a single .xls file that Excel opens cleanly. No external library required.
+let lastResultData = null;
+
+function escapeXml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function buildKvTable(pairs) {
+  const rows = pairs.map(([k, v]) =>
+    `<tr><th>${escapeXml(String(k))}</th><td>${escapeXml(String(v))}</td></tr>`
+  ).join("");
+  return `<table>${rows}</table>`;
+}
+
+function buildDataTable(headers, rows) {
+  const headHtml = headers.map((h) => `<th>${escapeXml(String(h))}</th>`).join("");
+  const rowsHtml = rows.map((row) =>
+    `<tr>${row.map((c) => `<td>${escapeXml(String(c == null ? "" : c))}</td>`).join("")}</tr>`
+  ).join("");
+  return `<table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
+}
+
+function buildResultHtml(data) {
+  const parts = [];
+  parts.push(`<h2>${escapeXml(data.title)}</h2>`);
+  parts.push(`<p>Generated: ${escapeXml(new Date().toLocaleString())}</p>`);
+  if (data.inputs && data.inputs.length > 0) {
+    parts.push("<h3>Inputs</h3>");
+    parts.push(buildKvTable(data.inputs));
+  }
+  if (data.rateLayers && data.rateLayers.rows && data.rateLayers.rows.length > 0) {
+    parts.push("<h3>Rate Layers</h3>");
+    parts.push(buildDataTable(data.rateLayers.headers, data.rateLayers.rows));
+  }
+  if (data.fdrLayers && data.fdrLayers.rows && data.fdrLayers.rows.length > 0) {
+    parts.push("<h3>Security (FDR) Layers</h3>");
+    parts.push(buildDataTable(data.fdrLayers.headers, data.fdrLayers.rows));
+  }
+  if (data.results && data.results.length > 0) {
+    parts.push("<h3>Calculation Results</h3>");
+    parts.push(buildKvTable(data.results));
+  }
+  if (data.schedule && data.schedule.rows && data.schedule.rows.length > 0) {
+    parts.push("<h3>Amortisation Schedule</h3>");
+    parts.push(buildDataTable(data.schedule.headers, data.schedule.rows));
+  }
+  return parts.join("");
+}
+
+function downloadExcel() {
+  if (!lastResultData) return;
+  const body = buildResultHtml(lastResultData);
+  const xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta http-equiv="Content-Type" content="application/vnd.ms-excel; charset=UTF-8">
+<title>Effective Rate Calculation</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11px; }
+h2 { margin: 0 0 8px; color: #0d3b66; font-size: 16px; }
+h3 { margin: 18px 0 6px; color: #0d3b66; font-size: 13px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+p { margin: 0 0 12px; color: #555; font-size: 10px; }
+table { border-collapse: collapse; margin-bottom: 8px; }
+th, td { border: 1px solid #999; padding: 4px 10px; }
+th { background: #e8eef5; font-weight: bold; text-align: left; }
+td { vertical-align: top; }
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>`;
+  const blob = new Blob([xls], { type: "application/vnd.ms-excel" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  a.download = `effective-rate-${ts}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target && e.target.classList && e.target.classList.contains("download-excel")) {
+    downloadExcel();
+  }
+});
 
 // Initial validation/render passes on page load
 validateLayers();
