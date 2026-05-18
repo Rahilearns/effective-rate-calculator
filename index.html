@@ -257,6 +257,12 @@
     background: rgba(255,255,255,0.3);
     outline: none;
   }
+  .schedule-total td {
+    font-weight: 700;
+    background: var(--bg-summary);
+    border-top: 2px solid var(--text-muted-soft);
+    color: var(--text-primary);
+  }
   input[type=text], input[type=number], select, textarea {
     width: 100%;
     padding: 12px;
@@ -1014,79 +1020,43 @@ document.getElementById("new-calc").addEventListener("click", () => {
   const totalCollected = sched.reduce((s, r) => s + r.payment, 0);
 
   const items = [
-    ["Modality", modalityLabel(modality)],
-    ["Tenure", `${n} ${periodWord}${n > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
-    ["Yield on Lending (YOL)", fmtPct(bm.yol)],
-    ["Total COF", fmtPct(totalCof / 100)],
-    ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+    [`Effective Rate (Cashflow basis, IRR × ${periods})`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
     ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
-    [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
-    ["Avg Portfolio", fmt(bm.avgPortfolio)],
-    ["Total Interest Income", fmt(bm.totalIntIncome)],
-    ["Total Funding Cost", fmt(bm.totalIntExpense)],
+    ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
   ];
-  if (fdrAmount > 0) {
-    const secTypeLabel = securityType === "fdr" ? "FDR"
-                       : securityType === "cash" ? "Cash Security"
-                       : securityType === "emi" ? "EMI"
-                       : "EQI";
-    items.push(["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)]);
-    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
-    items.push(["Security Type", secTypeLabel]);
-    if (usesInstallments) {
-      // Per spec, the derived security amount is not shown anywhere.
-      items.push([`# ${secTypeLabel}s as Security`, String(numInstallments)]);
-    } else {
-      items.push([secTypeLabel + " Amount", fmt(fdrAmount)]);
-    }
-    items.push(["Renewal Mode", renewalOption === "principal" ? "Principal only" : "Principal + interest"]);
-  } else {
-    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
-  }
-  items.push(["First Installment", fmt(firstPmt)]);
-  items.push(["Last Installment", fmt(lastPmt)]);
-  items.push(["Total Collected", fmt(totalCollected)]);
 
   const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
-  // Persist a compact snapshot for the Download Excel button.
-  const newSecLabel = securityType === "fdr" ? "FDR" : securityType === "cash" ? "Cash Security" : securityType === "emi" ? "EMI" : "EQI";
-  const newSecAmtRow = fdrAmount > 0
-    ? (usesInstallments ? `${numInstallments} × ${newSecLabel} (security amount hidden by design)` : fmt(fdrAmount))
+  // Persist a granular snapshot for the Download Excel (XLSX) builder.
+  const newSecLabel = fdrAmount > 0
+    ? (securityType === "fdr" ? "FDR" : securityType === "cash" ? "Cash Security" : securityType === "emi" ? "EMI-equivalent" : "EQI-equivalent")
     : "None";
+  // For New Loan: a single FDR layer covering the whole loan life (in months)
+  const totalLoanMonths = n * (periods === 12 ? 1 : 3);
+  const fdrLayersForXlsx = fdrAmount > 0 ? [{
+    fromDescription: "Disbursement",
+    toDescription: "Maturity",
+    amount: fdrAmount,
+    rate: fdrRate / 100,
+    months: totalLoanMonths,
+  }] : [];
   lastResultData = {
     title: "New Loan — Effective Rate Calculation",
-    inputs: [
-      ["Loan Amount", fmt(P)],
-      ["Offered Interest Rate", `${rate.toFixed(4)}%`],
-      ["Payment Modality", modalityLabel(modality)],
-      ["Number of Payments", String(n)],
-      ["Cost of Fund (Total)", `${totalCof.toFixed(4)}%`],
-      ["Security Type", newSecLabel],
-      ["Security Amount", newSecAmtRow],
-      ["Security Interest Rate", fdrAmount > 0 ? `${fdrRate.toFixed(4)}%` : "—"],
-      ["Renewal Option", fdrAmount > 0 ? (renewalOption === "principal" ? "Principal only" : "Principal + interest") : "—"],
-    ],
-    results: [
-      ["Effective Rate (Bank Yield, NIM + COF)", fmtPct(bm.effectiveRate)],
-      [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
-      ["Yield on Lending (YOL)", fmtPct(bm.yol)],
-      ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
-      ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
-      ["Tenure (years)", bm.tenureYears.toFixed(4)],
-      ["Avg Portfolio", fmt(bm.avgPortfolio)],
-      ["Total Interest Income", fmt(bm.totalIntIncome)],
-      ["Total Funding Cost", fmt(bm.totalIntExpense)],
-      ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
-      ["Net Interest Income (NII)", fmt(bm.nii)],
-      ["First Installment", fmt(firstPmt)],
-      ["Last Installment", fmt(lastPmt)],
-      ["Total Collected", fmt(totalCollected)],
-    ],
-    schedule: {
-      headers: ["Period", "Payment", "Principal", "Interest", "Balance"],
-      rows: sched.map((r) => [r.period, r.payment.toFixed(2), r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2)]),
-    },
+    modality: modalityLabel(modality),
+    P: P,
+    rate: rate / 100,
+    n: n,
+    ppy: periods,
+    cof: totalCof / 100,
+    secLabel: newSecLabel,
+    secInitial: fdrAmount,
+    fdrLayers: fdrLayersForXlsx,
+    schedule: sched.map((s, i) => ({
+      balanceStart: s.principal + s.balance,
+      rate: rate / 100,
+      payment: s.payment,
+      fdrCashflow: fdrFlows[i] || 0,
+    })),
   };
 
   out.innerHTML = renderResult({
@@ -1680,80 +1650,41 @@ document.getElementById("ex-calc").addEventListener("click", () => {
   const maturityDate = instIdxToDate(tenure, disbursement, modality);
 
   const items = [
-    ["Modality", modalityLabel(modality)],
-    ["Disbursement", fmtDateInputValue(disbursement)],
-    ["Maturity", fmtDateInputValue(maturityDate)],
-    ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
-    ["Rate Layers", `${layers.length} (${rateRangeStr})`],
-    ["Yield on Lending (YOL)", fmtPct(bm.yol)],
-    ["Total COF", fmtPct(totalCof / 100)],
-    ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
+    [`Effective Rate (Cashflow basis, IRR × ${periods})`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
     ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
-    [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
-    ["Avg Portfolio", fmt(bm.avgPortfolio)],
-    ["Total Interest Income", fmt(bm.totalIntIncome)],
-    ["Total Funding Cost", fmt(bm.totalIntExpense)],
+    ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
   ];
-  if (hasFdr) {
-    const fdrRates = fdrLayers.map((l) => l.rate);
-    const fdrAmounts = fdrLayers.map((l) => l.amount);
-    const fdrRateRange = Math.min(...fdrRates) === Math.max(...fdrRates)
-      ? `${Math.min(...fdrRates).toFixed(2)}%`
-      : `${Math.min(...fdrRates).toFixed(2)}% – ${Math.max(...fdrRates).toFixed(2)}%`;
-    const fdrAmtRange = Math.min(...fdrAmounts) === Math.max(...fdrAmounts)
-      ? fmt(Math.min(...fdrAmounts))
-      : `${fmt(Math.min(...fdrAmounts))} – ${fmt(Math.max(...fdrAmounts))}`;
-    items.push(["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)]);
-    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
-    items.push([`FDR Layers (${fdrLayers.length})`, fdrAmtRange]);
-    items.push(["FDR Rate Range", fdrRateRange]);
-  } else {
-    items.push(["Net Interest Income (NII)", fmt(bm.nii)]);
-  }
-  items.push(["First Installment", fmt(firstPmt)]);
-  items.push(["Last Installment", fmt(lastPmt)]);
-  items.push(["Total Collected", fmt(totalCollected)]);
 
   const sublabel = `NIM ${(bm.nim*100).toFixed(4)}% + Total COF ${totalCof.toFixed(2)}% = ${fmtPct(bm.effectiveRate)}`;
 
-  // Snapshot for the Download Excel button
+  // Snapshot for the Download Excel (XLSX) builder. Each FDR layer becomes a row
+  // in the audit sheet with its own benefit formula = Amount × (COF − Rate) × Months / 12.
+  const xlsxFdrLayers = fdrLayers.map((L) => ({
+    fromDescription: L.fromDate || "—",
+    toDescription: L.toDate || "—",
+    amount: L.amount,
+    rate: L.rate / 100,
+    months: (L.to - L.from + 1),
+  }));
+  // Map each loan period to the layer rate covering its starting installment so the
+  // schedule formula B*C/PPY recomputes correctly per row.
   lastResultData = {
     title: "Existing Loan — Effective Rate Calculation",
-    inputs: [
-      ["Original Loan Amount", fmt(P)],
-      ["Payment Modality", modalityLabel(modality)],
-      ["Tenure", `${tenure} ${periodWord}${tenure > 1 ? "s" : ""} (${bm.tenureYears.toFixed(2)} yr)`],
-      ["Disbursement Date", fmtDateInputValue(disbursement)],
-      ["Maturity Date", fmtDateInputValue(maturityDate)],
-      ["Cost of Fund (Total)", `${totalCof.toFixed(4)}%`],
-    ],
-    rateLayers: {
-      headers: ["From Date", "To Date", "From Inst.", "To Inst.", "Rate (%)"],
-      rows: layers.map((l) => [l.fromDate, l.toDate, l.from, l.to, l.rate.toFixed(4)]),
-    },
-    fdrLayers: hasFdr ? {
-      headers: ["From Date", "To Date", "From Month", "To Month", "Amount", "Rate (%)"],
-      rows: fdrLayers.map((l) => [l.fromDate, l.toDate, l.from, l.to, fmt(l.amount), l.rate.toFixed(4)]),
-    } : null,
-    results: [
-      ["Effective Rate (Bank Yield, NIM + COF)", fmtPct(bm.effectiveRate)],
-      [`IRR × ${periods} (cashflow basis)`, isFinite(irrAnnual) ? fmtPct(irrAnnual) : "—"],
-      ["Yield on Lending (YOL, blended)", fmtPct(bm.yol)],
-      ["Effective COF (after FDR)", fmtPct(bm.effectiveCof)],
-      ["Net Interest Margin (NIM)", fmtPct(bm.nim)],
-      ["Avg Portfolio", fmt(bm.avgPortfolio)],
-      ["Total Interest Income", fmt(bm.totalIntIncome)],
-      ["Total Funding Cost", fmt(bm.totalIntExpense)],
-      ["FDR Cost-Savings Benefit", fmt(bm.fdrBenefit)],
-      ["Net Interest Income (NII)", fmt(bm.nii)],
-      ["First Installment", fmt(firstPmt)],
-      ["Last Installment", fmt(lastPmt)],
-      ["Total Collected", fmt(totalCollected)],
-    ],
-    schedule: {
-      headers: ["Period", "Payment", "Principal", "Interest", "Balance", "Rate (%)"],
-      rows: sched.map((r) => [r.period, r.payment.toFixed(2), r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2), r.rate.toFixed(4)]),
-    },
+    modality: modalityLabel(modality),
+    P: P,
+    rate: (layers[0] && layers[0].rate != null ? layers[0].rate : 0) / 100,
+    n: tenure,
+    ppy: periods,
+    cof: totalCof / 100,
+    secLabel: hasFdr ? "FDR / Cash Security" : "None",
+    secInitial: fdrResult.initialAmount,
+    fdrLayers: xlsxFdrLayers,
+    schedule: sched.map((s, i) => ({
+      balanceStart: s.principal + s.balance,
+      rate: (s.rate || 0) / 100,
+      payment: s.payment,
+      fdrCashflow: fdrResult.periodFlows[i] || 0,
+    })),
   };
 
   out.innerHTML = renderResult({
@@ -1776,6 +1707,12 @@ function renderResult({ headlineLabel, headline, sublabel, items, schedule, sche
     const rateCell = showRate ? `<td>${r.rate != null ? r.rate.toFixed(2) + "%" : "—"}</td>` : "";
     return `<tr><td>${r.period}</td><td>${fmt(r.payment)}</td><td>${fmt(r.principal)}</td><td>${fmt(r.interest)}</td><td>${fmt(r.balance)}</td>${rateCell}</tr>`;
   }).join("");
+  const totals = schedule.reduce((a, r) => ({
+    payment: a.payment + (r.payment || 0),
+    principal: a.principal + (r.principal || 0),
+    interest: a.interest + (r.interest || 0),
+  }), { payment: 0, principal: 0, interest: 0 });
+  const totalRow = `<tr class="schedule-total"><td>Total</td><td>${fmt(totals.payment)}</td><td>${fmt(totals.principal)}</td><td>${fmt(totals.interest)}</td><td>—</td>${showRate ? "<td>—</td>" : ""}</tr>`;
   return `
     <div class="card result-card" style="margin-top:16px;">
       <div class="label">${headlineLabel}</div>
@@ -1789,92 +1726,264 @@ function renderResult({ headlineLabel, headline, sublabel, items, schedule, sche
       <div class="schedule">
         <table>
           <thead><tr><th>#</th><th>Payment</th><th>Principal</th><th>Interest</th><th>Balance</th>${rateHead}</tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody>${rows}${totalRow}</tbody>
         </table>
       </div>
     </details>
   `;
 }
 
-// ----- Excel download -----
-// Stores the latest calc result so the download button can build a worksheet from it.
-// Uses the HTML-as-XLS format: a single .xls file that Excel opens cleanly. No external library required.
+// ----- XLSX export with embedded formulas -----
+// Builds a real .xlsx file (proper ZIP of XML parts) so Excel opens it without warnings,
+// and embeds live formulas so users can audit the calculation by following cell references.
+
 let lastResultData = null;
 
-function escapeXml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// CRC32 (for ZIP entries)
+const _crcTable = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function _crc32(buf) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ _crcTable[(crc ^ buf[i]) & 0xff];
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
-function buildKvTable(pairs) {
-  const rows = pairs.map(([k, v]) =>
-    `<tr><th>${escapeXml(String(k))}</th><td>${escapeXml(String(v))}</td></tr>`
-  ).join("");
-  return `<table>${rows}</table>`;
-}
-
-function buildDataTable(headers, rows) {
-  const headHtml = headers.map((h) => `<th>${escapeXml(String(h))}</th>`).join("");
-  const rowsHtml = rows.map((row) =>
-    `<tr>${row.map((c) => `<td>${escapeXml(String(c == null ? "" : c))}</td>`).join("")}</tr>`
-  ).join("");
-  return `<table><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table>`;
-}
-
-function buildResultHtml(data) {
+// Pack files (uncompressed stored entries) into a ZIP Blob — Excel reads stored entries fine.
+function _zipStore(files) {
+  const enc = new TextEncoder();
   const parts = [];
-  parts.push(`<h2>${escapeXml(data.title)}</h2>`);
-  parts.push(`<p>Generated: ${escapeXml(new Date().toLocaleString())}</p>`);
-  if (data.inputs && data.inputs.length > 0) {
-    parts.push("<h3>Inputs</h3>");
-    parts.push(buildKvTable(data.inputs));
+  const cds = [];
+  let offset = 0;
+  for (const f of files) {
+    const nb = enc.encode(f.name);
+    const data = f.data;
+    const crc = _crc32(data);
+    const size = data.length;
+    const lh = new Uint8Array(30 + nb.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0x21, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nb.length, true);
+    lv.setUint16(28, 0, true);
+    lh.set(nb, 30);
+    parts.push(lh);
+    parts.push(data);
+    const cd = new Uint8Array(46 + nb.length);
+    const cv = new DataView(cd.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0x21, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nb.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    cd.set(nb, 46);
+    cds.push(cd);
+    offset += lh.length + size;
   }
-  if (data.rateLayers && data.rateLayers.rows && data.rateLayers.rows.length > 0) {
-    parts.push("<h3>Rate Layers</h3>");
-    parts.push(buildDataTable(data.rateLayers.headers, data.rateLayers.rows));
-  }
-  if (data.fdrLayers && data.fdrLayers.rows && data.fdrLayers.rows.length > 0) {
-    parts.push("<h3>Security (FDR) Layers</h3>");
-    parts.push(buildDataTable(data.fdrLayers.headers, data.fdrLayers.rows));
-  }
-  if (data.results && data.results.length > 0) {
-    parts.push("<h3>Calculation Results</h3>");
-    parts.push(buildKvTable(data.results));
-  }
-  if (data.schedule && data.schedule.rows && data.schedule.rows.length > 0) {
-    parts.push("<h3>Amortisation Schedule</h3>");
-    parts.push(buildDataTable(data.schedule.headers, data.schedule.rows));
-  }
-  return parts.join("");
+  const cdSize = cds.reduce((s, e) => s + e.length, 0);
+  const cdStart = offset;
+  for (const cd of cds) parts.push(cd);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, cdStart, true);
+  ev.setUint16(20, 0, true);
+  parts.push(eocd);
+  return new Blob(parts, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-function downloadExcel() {
+// Cell helpers
+function _escXml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function _cellStr(ref, val, s) {
+  const sa = s != null ? ` s="${s}"` : "";
+  return `<c r="${ref}"${sa} t="inlineStr"><is><t>${_escXml(val)}</t></is></c>`;
+}
+function _cellNum(ref, val, s) {
+  const sa = s != null ? ` s="${s}"` : "";
+  return `<c r="${ref}"${sa}><v>${val}</v></c>`;
+}
+function _cellFx(ref, formula, value, s) {
+  const sa = s != null ? ` s="${s}"` : "";
+  const v = (value != null && isFinite(value)) ? `<v>${value}</v>` : "";
+  return `<c r="${ref}"${sa}><f>${_escXml(formula)}</f>${v}</c>`;
+}
+
+// XLSX file part templates
+const _XLSX_CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+const _XLSX_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+const _XLSX_WB_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+const _XLSX_WB = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Calculation" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+// Style indices used below:
+//   0 - default                  1 - header (bold, blue fill, bordered)
+//   2 - number (#,##0.00, bordered)
+//   3 - percent (0.0000%, bordered)
+//   4 - text bordered
+//   5 - bold bordered (label)
+//   6 - integer bordered
+const _XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="0.0000%"/><numFmt numFmtId="166" formatCode="0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE8EEF5"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="165" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" applyFont="1" applyBorder="1"/><xf numFmtId="166" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1"/></cellXfs></styleSheet>`;
+
+// Build the audit-friendly calculation sheet. Cells use formulas where possible so the
+// user can change any input and watch the result recompute, or trace the math by reading
+// each cell's formula bar.
+function _buildCalcSheetRows(d) {
+  const rows = [];
+  let r = 1;
+  const refs = {};
+  const dash = (col, rr) => _cellStr(col + rr, "—", 4);
+
+  // Title
+  rows.push(`<row r="${r}"><c r="A${r}" s="1" t="inlineStr"><is><t>${_escXml(d.title)}</t></is></c></row>`); r++;
+  rows.push(`<row r="${r}"><c r="A${r}" t="inlineStr"><is><t>Generated: ${_escXml(new Date().toLocaleString())}</t></is></c></row>`); r++;
+  r++;
+
+  // INPUTS
+  rows.push(`<row r="${r}"><c r="A${r}" s="1" t="inlineStr"><is><t>INPUTS</t></is></c></row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Loan Amount",5)}${_cellNum("B"+r,d.P,2)}</row>`); refs.loan = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Offered Rate (annual)",5)}${_cellNum("B"+r,d.rate,3)}</row>`); refs.rate = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Modality",5)}${_cellStr("B"+r,d.modality,4)}</row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Number of Periods",5)}${_cellNum("B"+r,d.n,6)}</row>`); refs.n = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Periods per Year",5)}${_cellNum("B"+r,d.ppy,6)}</row>`); refs.ppy = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Tenure (years)",5)}${_cellFx("B"+r, `${refs.n}/${refs.ppy}`, d.n/d.ppy, 2)}</row>`); refs.years = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Cost of Fund (annual)",5)}${_cellNum("B"+r,d.cof,3)}</row>`); refs.cof = "B"+r; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Security Type",5)}${_cellStr("B"+r,d.secLabel || "—",4)}</row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Initial Security Amount",5)}${_cellNum("B"+r,d.secInitial || 0,2)}</row>`); refs.secInitial = "B"+r; r++;
+  r++;
+
+  // SECURITY / FDR LAYERS
+  rows.push(`<row r="${r}"><c r="A${r}" s="1" t="inlineStr"><is><t>SECURITY / FDR LAYERS</t></is></c></row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"From",1)}${_cellStr("B"+r,"To",1)}${_cellStr("C"+r,"Amount",1)}${_cellStr("D"+r,"Rate (annual)",1)}${_cellStr("E"+r,"Months",1)}${_cellStr("F"+r,"Benefit = Amount × (COF − Rate) × Months / 12",1)}</row>`); r++;
+  const fdrStart = r;
+  const fdrLayers = d.fdrLayers || [];
+  if (fdrLayers.length === 0) {
+    rows.push(`<row r="${r}">${_cellStr("A"+r,"—",4)}${_cellStr("B"+r,"—",4)}${_cellNum("C"+r,0,2)}${_cellNum("D"+r,0,3)}${_cellNum("E"+r,0,6)}${_cellNum("F"+r,0,2)}</row>`); r++;
+  } else {
+    for (const L of fdrLayers) {
+      const benefit = L.amount * (d.cof - L.rate) * L.months / 12;
+      rows.push(`<row r="${r}">${_cellStr("A"+r, L.fromDescription, 4)}${_cellStr("B"+r, L.toDescription, 4)}${_cellNum("C"+r, L.amount, 2)}${_cellNum("D"+r, L.rate, 3)}${_cellNum("E"+r, L.months, 6)}${_cellFx("F"+r, `C${r}*(${refs.cof}-D${r})*E${r}/12`, benefit, 2)}</row>`);
+      r++;
+    }
+  }
+  const fdrEnd = r - 1;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Total FDR Benefit",5)}${dash("B",r)}${dash("C",r)}${dash("D",r)}${dash("E",r)}${_cellFx("F"+r, `SUM(F${fdrStart}:F${fdrEnd})`, null, 2)}</row>`);
+  refs.fdrBenefit = "F" + r;
+  r++;
+  r++;
+
+  // AMORTISATION SCHEDULE
+  rows.push(`<row r="${r}"><c r="A${r}" s="1" t="inlineStr"><is><t>AMORTISATION SCHEDULE</t></is></c></row>`); r++;
+  const hdr = ["#","Opening Balance","Loan Rate","Interest = Open × Rate / PPY","Payment","Principal = Pmt − Int","Closing = Open − Prin","Funding Cost = Open × COF / PPY","FDR Inflow","Net Cashflow = −Pmt + FDR"];
+  rows.push(`<row r="${r}">${hdr.map((h,i)=>_cellStr(String.fromCharCode(65+i)+r,h,1)).join("")}</row>`); r++;
+
+  // t=0 row — only Net Cashflow column has a value
+  const t0r = r;
+  rows.push(`<row r="${r}">${_cellNum("A"+r,0,6)}${dash("B",r)}${dash("C",r)}${dash("D",r)}${dash("E",r)}${dash("F",r)}${dash("G",r)}${dash("H",r)}${dash("I",r)}${_cellFx("J"+r, `${refs.loan}-${refs.secInitial}`, d.P - (d.secInitial || 0), 2)}</row>`);
+  r++;
+
+  const schedStart = r;
+  for (let i = 0; i < d.schedule.length; i++) {
+    const s = d.schedule[i];
+    const period = i + 1;
+    const opening = i === 0 ? refs.loan : `G${r - 1}`;
+    const intCalc = s.balanceStart * s.rate / d.ppy;
+    const principalCalc = s.payment - intCalc;
+    const closingCalc = s.balanceStart - principalCalc;
+    const fundCalc = s.balanceStart * d.cof / d.ppy;
+    const netCfCalc = -s.payment + (s.fdrCashflow || 0);
+    const cells = [
+      _cellNum("A"+r, period, 6),
+      _cellFx("B"+r, opening, s.balanceStart, 2),
+      _cellNum("C"+r, s.rate, 3),
+      _cellFx("D"+r, `B${r}*C${r}/${refs.ppy}`, intCalc, 2),
+      _cellNum("E"+r, s.payment, 2),
+      _cellFx("F"+r, `E${r}-D${r}`, principalCalc, 2),
+      _cellFx("G"+r, `B${r}-F${r}`, closingCalc, 2),
+      _cellFx("H"+r, `B${r}*${refs.cof}/${refs.ppy}`, fundCalc, 2),
+      _cellNum("I"+r, s.fdrCashflow || 0, 2),
+      _cellFx("J"+r, `-E${r}+I${r}`, netCfCalc, 2),
+    ];
+    rows.push(`<row r="${r}">${cells.join("")}</row>`);
+    r++;
+  }
+  const schedEnd = r - 1;
+
+  // TOTAL row
+  const totalR = r;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"TOTAL",5)}${dash("B",r)}${dash("C",r)}${_cellFx("D"+r, `SUM(D${schedStart}:D${schedEnd})`, null, 2)}${_cellFx("E"+r, `SUM(E${schedStart}:E${schedEnd})`, null, 2)}${_cellFx("F"+r, `SUM(F${schedStart}:F${schedEnd})`, null, 2)}${dash("G",r)}${_cellFx("H"+r, `SUM(H${schedStart}:H${schedEnd})`, null, 2)}${_cellFx("I"+r, `SUM(I${schedStart}:I${schedEnd})`, null, 2)}${_cellFx("J"+r, `SUM(J${t0r}:J${schedEnd})`, null, 2)}</row>`);
+  r++;
+  r++;
+
+  // RESULTS
+  rows.push(`<row r="${r}"><c r="A${r}" s="1" t="inlineStr"><is><t>RESULTS</t></is></c></row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Total Interest Income",5)}${_cellFx("B"+r, `D${totalR}`, null, 2)}</row>`); const intIncRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Average Portfolio (start-of-period URPA)",5)}${_cellFx("B"+r, `AVERAGE(B${schedStart}:B${schedEnd})`, null, 2)}</row>`); const avgPortRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Total Funding Cost",5)}${_cellFx("B"+r, `H${totalR}`, null, 2)}</row>`); const fundCostRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"FDR Cost-Savings Benefit",5)}${_cellFx("B"+r, refs.fdrBenefit, null, 2)}</row>`); const fdrBenefRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Net Interest Income (NII) = Income + FDR Benefit − Funding Cost",5)}${_cellFx("B"+r, `${intIncRef}+${fdrBenefRef}-${fundCostRef}`, null, 2)}</row>`); const niiRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"NIM = NII / Avg Portfolio / Years",5)}${_cellFx("B"+r, `${niiRef}/${avgPortRef}/${refs.years}`, null, 3)}</row>`); const nimRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Effective Rate (NIM + COF)",5)}${_cellFx("B"+r, `${nimRef}+${refs.cof}`, null, 3)}</row>`); r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"IRR (periodic)",5)}${_cellFx("B"+r, `IRR(J${t0r}:J${schedEnd})`, null, 3)}</row>`); const irrRef = `B${r}`; r++;
+  rows.push(`<row r="${r}">${_cellStr("A"+r,"Effective Rate (Cashflow basis, IRR × Periods)",5)}${_cellFx("B"+r, `${irrRef}*${refs.ppy}`, null, 3)}</row>`); r++;
+
+  return rows.join("");
+}
+
+function _buildXlsxBlob(data) {
+  const enc = new TextEncoder();
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><cols><col min="1" max="1" width="40" customWidth="1"/><col min="2" max="12" width="16" customWidth="1"/></cols><sheetData>${_buildCalcSheetRows(data)}</sheetData></worksheet>`;
+  return _zipStore([
+    { name: "[Content_Types].xml", data: enc.encode(_XLSX_CONTENT_TYPES) },
+    { name: "_rels/.rels", data: enc.encode(_XLSX_RELS) },
+    { name: "xl/workbook.xml", data: enc.encode(_XLSX_WB) },
+    { name: "xl/_rels/workbook.xml.rels", data: enc.encode(_XLSX_WB_RELS) },
+    { name: "xl/styles.xml", data: enc.encode(_XLSX_STYLES) },
+    { name: "xl/worksheets/sheet1.xml", data: enc.encode(sheetXml) },
+  ]);
+}
+
+function downloadXlsx() {
   if (!lastResultData) return;
-  const body = buildResultHtml(lastResultData);
-  const xls = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta http-equiv="Content-Type" content="application/vnd.ms-excel; charset=UTF-8">
-<title>Effective Rate Calculation</title>
-<style>
-body { font-family: Calibri, Arial, sans-serif; font-size: 11px; }
-h2 { margin: 0 0 8px; color: #0d3b66; font-size: 16px; }
-h3 { margin: 18px 0 6px; color: #0d3b66; font-size: 13px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
-p { margin: 0 0 12px; color: #555; font-size: 10px; }
-table { border-collapse: collapse; margin-bottom: 8px; }
-th, td { border: 1px solid #999; padding: 4px 10px; }
-th { background: #e8eef5; font-weight: bold; text-align: left; }
-td { vertical-align: top; }
-</style>
-</head>
-<body>
-${body}
-</body>
-</html>`;
-  const blob = new Blob([xls], { type: "application/vnd.ms-excel" });
+  const blob = _buildXlsxBlob(lastResultData);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  a.download = `effective-rate-${ts}.xls`;
+  a.download = `effective-rate-${ts}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -1883,7 +1992,7 @@ ${body}
 
 document.addEventListener("click", (e) => {
   if (e.target && e.target.classList && e.target.classList.contains("download-excel")) {
-    downloadExcel();
+    downloadXlsx();
   }
 });
 
